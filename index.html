@@ -12,72 +12,115 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
   :root {
-    --bg:#0F1117; --surface:#171A24; --border:#262A38; --text:#E7E9EE;
-    --muted:#8B90A0; --dim:#5B6072; --indigo:#4F46E5;
+    --bg:#0F1117; --text:#E7E9EE; --muted:#8B90A0; --dim:#5B6072; --indigo:#4F46E5;
   }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font-family:'Inter',ui-sans-serif,system-ui,sans-serif; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin:0; color:var(--text); font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+    min-height:100vh;
+    background:
+      radial-gradient(650px circle at 15% -10%, rgba(79,70,229,0.38), transparent 60%),
+      radial-gradient(500px circle at 105% 5%, rgba(45,212,191,0.20), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
+  }
   .mono { font-family:'JetBrains Mono', ui-monospace, monospace; }
   input::placeholder { color: var(--dim); }
   ::-webkit-scrollbar { height:0; width:0; }
   button { -webkit-tap-highlight-color: transparent; }
 
-  .wrap { max-width:480px; margin:0 auto; padding:24px 16px 64px; }
-  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
-  .brand { display:flex; align-items:center; gap:8px; }
-  .brand-bar { width:4px; height:20px; background:var(--indigo); border-radius:2px; }
-  .brand-name { font-weight:800; font-size:18px; letter-spacing:-0.02em; }
-  .stats { display:flex; align-items:center; gap:12px; font-size:12px; color:var(--muted); }
-  .bell { display:flex; align-items:center; gap:4px; cursor:pointer; background:none; border:none; color:inherit; font:inherit; padding:0; }
-  .bell.on { color:var(--indigo); }
+  .wrap { max-width:480px; margin:0 auto; padding:26px 16px 64px; }
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+  .brand { display:flex; align-items:center; gap:9px; }
+  .brand-bar { width:5px; height:22px; background:var(--indigo); border-radius:3px; box-shadow:0 0 14px rgba(79,70,229,0.65); }
+  .brand-name {
+    font-weight:800; font-size:21px; letter-spacing:-0.03em;
+    background:linear-gradient(90deg,#F4F5F7 0%,#A5B4FC 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .stats { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+  .stat-pill { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); padding:6px 11px; border-radius:999px; }
+  .bell { display:flex; align-items:center; gap:6px; cursor:pointer; background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.08); color:var(--muted); font:inherit; padding:6px 11px; border-radius:999px; }
+  .bell.on { background:rgba(79,70,229,0.22); border-color:var(--indigo); color:#C7D2FE; }
 
   .quickadd-wrap { margin-bottom:16px; }
-  .quickadd { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:12px 14px; display:flex; align-items:center; gap:10px; }
-  .quickadd input { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:14px; font-family:inherit; min-width:0; }
-  .live-tag { font-size:11px; font-weight:600; padding:4px 9px; border-radius:999px; white-space:nowrap; flex-shrink:0; }
-  .hint { font-size:11px; color:var(--dim); margin:8px 2px 0; }
+  .quickadd {
+    background:linear-gradient(160deg,#1C2030 0%,#14161F 100%);
+    border:1px solid rgba(255,255,255,0.08); border-radius:20px; padding:12px 14px;
+    display:flex; align-items:center; gap:12px;
+    box-shadow:0 10px 30px -16px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .quickadd:focus-within { border-color:var(--indigo); box-shadow:0 0 0 3px rgba(79,70,229,0.18); }
+  .quickadd input { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:14.5px; font-family:inherit; min-width:0; }
+  .qa-plus {
+    width:28px; height:28px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(135deg,#6366F1,#4F46E5); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:16px;
+    box-shadow:0 4px 14px -4px rgba(79,70,229,0.8);
+  }
+  .live-tag { font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; flex-shrink:0; animation:pop .22s ease; }
+  @keyframes pop { from{opacity:0;transform:scale(.85);} to{opacity:1;transform:scale(1);} }
+  .hint { font-size:11px; color:var(--dim); margin:9px 3px 0; }
 
   .chips { display:flex; gap:8px; margin-bottom:16px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .chip { font-size:12px; font-weight:600; padding:6px 12px; border-radius:999px; border:1px solid var(--border);
-    color:var(--muted); white-space:nowrap; background:none; font-family:inherit; flex-shrink:0;
-    display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .chip {
+    font-size:12px; font-weight:700; padding:7px 13px; border-radius:999px; border:1px solid rgba(255,255,255,0.1);
+    color:var(--muted); white-space:nowrap; background:rgba(255,255,255,0.03); font-family:inherit; flex-shrink:0;
+    display:flex; align-items:center; gap:6px; cursor:pointer;
+  }
 
-  .card { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:16px; margin-bottom:16px; }
+  .card {
+    background:linear-gradient(160deg,#1C2030 0%,#14161F 100%);
+    border:1px solid rgba(255,255,255,0.07); border-radius:24px; padding:18px; margin-bottom:16px;
+    box-shadow:0 10px 32px -16px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
   .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted);
-    display:flex; align-items:center; gap:6px; margin-bottom:10px; }
+    display:flex; align-items:center; gap:6px; margin-bottom:12px; }
 
-  .task { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid #1E212B; }
+  .task { display:flex; align-items:flex-start; gap:10px; padding:11px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
   .task:last-child { border-bottom:none; }
-  .check { width:20px; height:20px; border-radius:50%; flex-shrink:0; margin-top:1px; border:1.5px solid #3A3F4E;
+  .check { width:21px; height:21px; border-radius:50%; flex-shrink:0; margin-top:1px; border:1.5px solid #3A3F4E;
     background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff; font-size:11px; padding:0; }
-  .check.done { background:var(--indigo); border-color:var(--indigo); }
+  .check.done { background:var(--indigo); border-color:var(--indigo); box-shadow:0 0 10px rgba(79,70,229,0.55); }
   .task-text { font-size:13.5px; margin:0 0 6px; color:var(--text); }
   .task-text.done { color:var(--dim); text-decoration:line-through; }
   .tag-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
   .tag { font-size:11px; font-weight:600; padding:4px 9px; border-radius:999px; border:none; font-family:inherit;
     cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
-  .tag-ghost { color:var(--dim); border:1px dashed var(--border); background:none; }
+  .tag-ghost { color:var(--dim); border:1px dashed rgba(255,255,255,0.15); background:none; }
   .del-btn { background:none; border:none; color:var(--dim); cursor:pointer; padding:2px; margin-top:2px; font-size:13px; }
 
   .group-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; display:flex; align-items:center;
-    gap:6px; margin:14px 0 4px; }
+    gap:7px; margin:16px 0 5px; }
   .group-label:first-child { margin-top:0; }
+  .group-label .dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
 
   .streak-row { display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; }
-  .streak-bar { width:11px; height:30px; border-radius:6px; flex-shrink:0; background:#20232F; }
+  .streak-bar { width:12px; height:34px; border-radius:8px; flex-shrink:0; background:#20232F; }
 
-  .health-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid #1E212B; }
+  .health-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
   .health-row:last-child { border-bottom:none; }
   .health-label { display:flex; align-items:center; gap:8px; font-size:14px; }
-  .stepper { display:flex; align-items:center; gap:8px; }
-  .stepper button { width:24px; height:24px; border-radius:50%; border:1px solid #333849; background:none; color:var(--muted); font-size:14px; cursor:pointer; }
+
+  .cutout-row { display:flex; gap:10px; margin-top:16px; }
+  .cutout-btn {
+    display:flex; flex-direction:column; align-items:center; gap:6px; flex:1;
+    background:linear-gradient(160deg, rgba(255,255,255,0.07), rgba(255,255,255,0.015));
+    border:1px solid rgba(255,255,255,0.09); border-radius:18px; padding:12px 6px;
+    cursor:pointer; transition:transform .1s;
+  }
+  .cutout-btn:active { transform:scale(0.94); }
+  .cutout-label { font-size:11px; font-weight:700; color:var(--text); }
+  .cutout-sub { font-size:10px; color:var(--dim); }
 
   .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-  .cal-nav { background:none; border:none; color:var(--muted); font-size:16px; cursor:pointer; padding:4px 8px; }
+  .cal-nav { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:var(--muted); font-size:15px; cursor:pointer; padding:5px 11px; border-radius:10px; }
   .cal-month { font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); }
   .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
   .cal-dow { text-align:center; font-size:11px; color:var(--dim); }
-  .cal-day { aspect-ratio:1; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:12px;
+  .cal-day { aspect-ratio:1; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:12px;
     border:1px solid transparent; background:#1A1D29; color:var(--dim); cursor:pointer; }
   .cal-day.today { border-color:var(--text); }
   .cal-day.future { opacity:0.3; pointer-events:none; }
@@ -97,7 +140,9 @@
 
   var STORAGE_TASKS = "flow-tasks-v1";
   var STORAGE_HEALTH = "flow-health-v1";
-  var WATER_GOAL = 8;
+  var STORAGE_NOTIF = "flow-notif-v1";
+  var WATER_GOAL_ML = 3000;
+  var CAFFEINE_MG_PER_ML = 95 / 240;
 
   var CATEGORIES = [
     { id: "work", name: "Happiness Entertainment", short: "Work", color: "#F0B429",
@@ -156,32 +201,29 @@
     var y2 = new Date(now); y2.setDate(now.getDate() - 2);
     var y3 = new Date(now); y3.setDate(now.getDate() - 3);
     var out = {};
-    out[fmtKey(y1)] = { eat: true, water: 8, supplements: true, gym: true };
-    out[fmtKey(y2)] = { eat: true, water: 5, supplements: false, gym: false };
-    out[fmtKey(y3)] = { eat: false, water: 0, supplements: false, gym: false };
+    out[fmtKey(y1)] = { eat: true, waterMl: 3000, caffeineMl: 240, supplements: true, gym: true };
+    out[fmtKey(y2)] = { eat: true, waterMl: 1800, caffeineMl: 0, supplements: false, gym: false };
+    out[fmtKey(y3)] = { eat: false, waterMl: 0, caffeineMl: 0, supplements: false, gym: false };
     return out;
   }
 
   function load(key) {
-    try {
-      var raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
+    try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }
+    catch (e) { return null; }
   }
-  function save(key, val) {
-    try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
-  }
+  function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
 
   var tasks = load(STORAGE_TASKS);
   if (!tasks) { tasks = seedTasks(); save(STORAGE_TASKS, tasks); }
   var healthLogs = load(STORAGE_HEALTH);
   if (!healthLogs) { healthLogs = seedHealth(); save(STORAGE_HEALTH, healthLogs); }
+  var storedNotif = load(STORAGE_NOTIF);
 
   var state = {
     filter: "all",
     inputValue: "",
     editState: { type: null, id: null },
-    notifEnabled: false,
+    notifEnabled: storedNotif === true && ("Notification" in window) && Notification.permission === "granted",
     notifiedIds: {},
     calendarMonth: (function () { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(),
     editingHealthDate: null
@@ -194,7 +236,7 @@
     if (!log) return null;
     var n = 0;
     if (log.eat) n++;
-    if ((log.water || 0) >= WATER_GOAL) n++;
+    if ((log.waterMl || 0) >= WATER_GOAL_ML) n++;
     if (log.supplements) n++;
     if (log.gym) n++;
     return n;
@@ -206,7 +248,7 @@
     return STATUS.green;
   }
   function getHealthLog(key) {
-    return healthLogs[key] || { eat: false, water: 0, supplements: false, gym: false };
+    return healthLogs[key] || { eat: false, waterMl: 0, caffeineMl: 0, supplements: false, gym: false };
   }
 
   function dueMeta(dueStr) {
@@ -230,6 +272,46 @@
     });
   }
 
+  function iconBottleSmall(idSuffix) {
+    var gid = "waterGradS" + idSuffix;
+    return '<svg width="38" height="60" viewBox="0 0 60 96" fill="none">' +
+      '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="1" y2="1">' +
+        '<stop offset="0%" stop-color="#67E8F9"/><stop offset="100%" stop-color="#3B82F6"/>' +
+      '</linearGradient></defs>' +
+      '<rect x="22" y="2" width="16" height="10" rx="3" fill="#CBD5E1"/>' +
+      '<rect x="24" y="10" width="12" height="10" fill="url(#' + gid + ')"/>' +
+      '<rect x="10" y="20" width="40" height="74" rx="14" fill="url(#' + gid + ')"/>' +
+      '<rect x="10" y="52" width="40" height="16" fill="rgba(15,17,23,0.18)"/>' +
+      '<rect x="17" y="30" width="6" height="50" rx="3" fill="rgba(255,255,255,0.35)"/>' +
+      '</svg>';
+  }
+  function iconBottleBig(idSuffix) {
+    var gid = "waterGradB" + idSuffix;
+    return '<svg width="48" height="68" viewBox="0 0 76 104" fill="none">' +
+      '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="1" y2="1">' +
+        '<stop offset="0%" stop-color="#38BDF8"/><stop offset="100%" stop-color="#4F46E5"/>' +
+      '</linearGradient></defs>' +
+      '<rect x="28" y="2" width="20" height="10" rx="3" fill="#CBD5E1"/>' +
+      '<rect x="30" y="10" width="16" height="12" fill="url(#' + gid + ')"/>' +
+      '<path d="M14 26 Q14 22 20 22 L56 22 Q62 22 62 26 L66 92 Q66 102 56 102 L20 102 Q10 102 10 92 Z" fill="url(#' + gid + ')"/>' +
+      '<rect x="10" y="58" width="56" height="18" fill="rgba(15,17,23,0.18)"/>' +
+      '<rect x="20" y="34" width="7" height="56" rx="3.5" fill="rgba(255,255,255,0.32)"/>' +
+      '</svg>';
+  }
+  function iconCoffeeCup(idSuffix) {
+    var gid = "coffeeGrad" + idSuffix;
+    return '<svg width="52" height="52" viewBox="0 0 100 96" fill="none">' +
+      '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0%" stop-color="#D8A868"/><stop offset="100%" stop-color="#8B5E34"/>' +
+      '</linearGradient></defs>' +
+      '<path d="M18 26 L82 26 L74 84 Q73 92 62 92 L38 92 Q27 92 26 84 Z" fill="url(#' + gid + ')"/>' +
+      '<path d="M80 34 Q102 36 98 54 Q94 72 76 68" stroke="url(#' + gid + ')" stroke-width="8" fill="none" stroke-linecap="round"/>' +
+      '<ellipse cx="50" cy="27" rx="30" ry="7" fill="#5C3A22"/>' +
+      '<path d="M40 16 Q34 8 40 -2" stroke="rgba(255,255,255,0.4)" stroke-width="3" fill="none" stroke-linecap="round"/>' +
+      '<path d="M56 16 Q50 8 56 -2" stroke="rgba(255,255,255,0.4)" stroke-width="3" fill="none" stroke-linecap="round"/>' +
+      '</svg>';
+  }
+
   var root = document.getElementById("app");
 
   function render() {
@@ -244,23 +326,23 @@
     html += '<div class="header">' +
       '<div class="brand"><div class="brand-bar"></div><div class="brand-name">Flow</div></div>' +
       '<div class="stats mono">' +
-        '<span>' + openCount + ' open</span>' +
+        '<span class="stat-pill">' + openCount + ' open</span>' +
         '<button class="bell' + (state.notifEnabled ? ' on' : '') + '" data-action="toggle-notif">🔔 ' + dueSoon.length + '</button>' +
       '</div></div>';
 
     var previewCat = state.inputValue.trim() ? CAT_BY_ID[categorize(state.inputValue)] : null;
     html += '<div class="quickadd-wrap"><div class="quickadd">' +
-      '<span style="color:var(--indigo)">＋</span>' +
+      '<span class="qa-plus">＋</span>' +
       '<input id="quick-input" type="text" placeholder="Type a task and press enter…" value="' + escapeHtml(state.inputValue) + '" />' +
-      (previewCat ? '<span class="live-tag" style="background:' + previewCat.color + '1E;color:' + previewCat.color + '">' + previewCat.short + '</span>' : '') +
+      (previewCat ? '<span class="live-tag" style="background:' + previewCat.color + '25;color:' + previewCat.color + '">' + previewCat.short + '</span>' : '') +
       '</div><p class="hint">sorts itself as you type — tap a tag on any task to move it</p></div>';
 
     html += '<div class="chips">';
-    html += '<button class="chip" data-action="set-filter" data-id="all" style="' + (state.filter === "all" ? "background:#4F46E51E;color:#4F46E5;border-color:#4F46E5" : "") + '">All <span class="mono">' + tasks.length + '</span></button>';
+    html += '<button class="chip" data-action="set-filter" data-id="all" style="' + (state.filter === "all" ? "background:#4F46E5;color:#0B0D12;border-color:transparent;box-shadow:0 4px 14px -4px rgba(79,70,229,0.6);" : "") + '">All <span class="mono">' + tasks.length + '</span></button>';
     CATEGORIES.forEach(function (cat) {
       var count = tasks.filter(function (t) { return t.categoryId === cat.id; }).length;
       var active = state.filter === cat.id;
-      html += '<button class="chip" data-action="set-filter" data-id="' + cat.id + '" style="' + (active ? "background:" + cat.color + "1E;color:" + cat.color + ";border-color:" + cat.color : "") + '">' + cat.short + ' <span class="mono">' + count + '</span></button>';
+      html += '<button class="chip" data-action="set-filter" data-id="' + cat.id + '" style="' + (active ? "background:" + cat.color + ";color:#0B0D12;border-color:transparent;box-shadow:0 4px 14px -4px " + cat.color + "99;" : "") + '">' + cat.short + ' <span class="mono">' + count + '</span></button>';
     });
     html += '</div>';
 
@@ -293,7 +375,7 @@
           return '<option value="' + c.id + '"' + (c.id === t.categoryId ? " selected" : "") + '>' + c.short + '</option>';
         }).join("") + '</select>';
     } else {
-      catHtml = '<button class="tag" data-action="start-edit-cat" data-id="' + t.id + '" style="background:' + cat.color + '1E;color:' + cat.color + '">' + cat.short + '</button>';
+      catHtml = '<button class="tag" data-action="start-edit-cat" data-id="' + t.id + '" style="background:' + cat.color + '25;color:' + cat.color + '">' + cat.short + '</button>';
     }
 
     var dueHtml;
@@ -304,7 +386,7 @@
       var color = meta.overdue ? "#F87171" : "#4F46E5";
       var shortLabel = meta.overdue ? "Overdue · " + meta.label.split(" · ")[1] : meta.label;
       dueHtml = '<span style="display:inline-flex;align-items:center;gap:4px;">' +
-        '<button class="tag" data-action="start-edit-due" data-id="' + t.id + '" style="background:' + color + '1E;color:' + color + '">⏱ ' + shortLabel + '</button>' +
+        '<button class="tag" data-action="start-edit-due" data-id="' + t.id + '" style="background:' + color + '25;color:' + color + '">⏱ ' + shortLabel + '</button>' +
         '<button class="del-btn" data-action="clear-due" data-id="' + t.id + '">✕</button></span>';
     } else {
       dueHtml = '<button class="tag tag-ghost" data-action="start-edit-due" data-id="' + t.id + '">⏱ remind me</button>';
@@ -333,14 +415,14 @@
     } else {
       groups = [{ cat: CAT_BY_ID[state.filter], items: tasks.filter(function (t) { return t.categoryId === state.filter; }).sort(sortFn) }];
     }
-    var html = '<div class="card" style="padding-top:4px;padding-bottom:4px;">';
+    var html = '<div class="card" style="padding-top:6px;padding-bottom:6px;">';
     var totalItems = groups.reduce(function (sum, g) { return sum + g.items.length; }, 0);
     if (totalItems === 0) {
       html += '<p class="empty">Nothing here yet — type above to add your first one.</p>';
     }
     groups.forEach(function (g) {
       if (state.filter === "all") {
-        html += '<div class="group-label" style="color:' + g.cat.color + '">' + g.cat.short + '</div>';
+        html += '<div class="group-label" style="color:' + g.cat.color + '"><span class="dot"></span>' + g.cat.short + '</div>';
       }
       g.items.forEach(function (t) { html += renderTask(t); });
     });
@@ -371,17 +453,56 @@
       { key: "supplements", label: "Supplements", icon: "💊" },
       { key: "gym", label: "Gym", icon: "🏋️" }
     ];
-    var html = '<div class="health-row"><span class="health-label">💧 Water</span>' +
-      '<span class="stepper">' +
-        '<button data-action="water-adjust" data-date="' + dateKey + '" data-delta="-1">−</button>' +
-        '<span class="mono" style="font-size:12px;color:var(--muted);min-width:34px;text-align:center;">' + (log.water || 0) + '/' + WATER_GOAL + '</span>' +
-        '<button data-action="water-adjust" data-date="' + dateKey + '" data-delta="1">+</button>' +
-      '</span></div>';
+    var html = "";
     rows.forEach(function (r) {
       var active = log[r.key];
       html += '<div class="health-row"><span class="health-label">' + r.icon + ' ' + r.label + '</span>' +
         '<button class="check' + (active ? " done" : "") + '" data-action="health-toggle" data-date="' + dateKey + '" data-field="' + r.key + '">' + (active ? "✓" : "") + '</button></div>';
     });
+    return html;
+  }
+
+  function renderHydrationCard(dateKey, idSuffix) {
+    var log = getHealthLog(dateKey);
+    var waterMl = log.waterMl || 0;
+    var caffeineMl = log.caffeineMl || 0;
+    var pct = Math.min(waterMl / WATER_GOAL_ML, 1);
+    var r = 52, circ = 2 * Math.PI * r;
+    var dash = circ * pct;
+    var liters = (waterMl / 1000).toFixed(1);
+    var goalLiters = (WATER_GOAL_ML / 1000).toFixed(0);
+    var mg = Math.round(caffeineMl * CAFFEINE_MG_PER_ML);
+
+    var html = '<div class="card">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">' +
+      '<div class="eyebrow" style="margin-bottom:0;">💧 Hydration</div>' +
+      '<button class="del-btn" data-action="reset-hydration" data-date="' + dateKey + '" title="Reset">↺</button></div>';
+
+    html += '<div style="display:flex;justify-content:center;position:relative;margin:8px 0 16px;">' +
+      '<svg width="140" height="140" viewBox="0 0 120 120">' +
+        '<defs><linearGradient id="ringGrad' + idSuffix + '" x1="0%" y1="0%" x2="100%" y2="100%">' +
+          '<stop offset="0%" stop-color="#22D3EE"/><stop offset="100%" stop-color="#4F46E5"/></linearGradient></defs>' +
+        '<circle cx="60" cy="60" r="' + r + '" stroke="#1E212B" stroke-width="10" fill="none"/>' +
+        '<circle cx="60" cy="60" r="' + r + '" stroke="url(#ringGrad' + idSuffix + ')" stroke-width="10" fill="none" ' +
+          'stroke-linecap="round" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + (circ - dash).toFixed(1) + '" transform="rotate(-90 60 60)"/>' +
+      '</svg>' +
+      '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">' +
+        '<div style="font-size:23px;font-weight:800;">' + liters + 'L</div>' +
+        '<div class="mono" style="font-size:10px;color:var(--muted);">of ' + goalLiters + 'L</div>' +
+      '</div></div>';
+
+    html += '<div class="cutout-row">' +
+      '<button class="cutout-btn" data-action="add-water" data-date="' + dateKey + '" data-amount="600">' + iconBottleSmall(idSuffix) + '<span class="cutout-label">Small</span><span class="cutout-sub mono">600ml</span></button>' +
+      '<button class="cutout-btn" data-action="add-water" data-date="' + dateKey + '" data-amount="1500">' + iconBottleBig(idSuffix) + '<span class="cutout-label">Big</span><span class="cutout-sub mono">1.5L</span></button>' +
+      '<button class="cutout-btn" data-action="add-coffee" data-date="' + dateKey + '" data-amount="240">' + iconCoffeeCup(idSuffix) + '<span class="cutout-label">Americano</span><span class="cutout-sub mono">240ml</span></button>' +
+    '</div>';
+
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06);">' +
+      '<span style="font-size:12px;color:var(--muted);">☕ Caffeine today</span>' +
+      '<span class="mono" style="font-size:13px;font-weight:700;">' + caffeineMl + 'ml <span style="color:var(--dim);font-weight:400;">(~' + mg + 'mg)</span></span>' +
+    '</div>';
+
+    html += '</div>';
     return html;
   }
 
@@ -396,15 +517,17 @@
 
     var html = '<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
       '<span style="font-size:18px;">🔥</span>' +
-      '<span style="font-size:14px;font-weight:600;">' + (streak > 0 ? streak + " day streak" : "Log today to start a streak") + '</span>' +
+      '<span style="font-size:14px;font-weight:700;">' + (streak > 0 ? streak + " day streak" : "Log today to start a streak") + '</span>' +
       '</div><div class="streak-row">';
     days.forEach(function (key) {
       var score = scoreOf(healthLogs[key]);
       var color = statusHex(score);
       var isToday = key === todayKey;
-      html += '<div class="streak-bar" style="background:' + (color || "#20232F") + ';' + (isToday ? "border:1.5px solid #E7E9EE;" : "") + '" title="' + key + '"></div>';
+      html += '<div class="streak-bar" style="background:' + (color || "#20232F") + ';' + (isToday ? "border:2px solid #fff;box-shadow:0 0 10px rgba(231,233,238,0.5);" : "") + '" title="' + key + '"></div>';
     });
     html += '</div></div>';
+
+    html += renderHydrationCard(todayKey, "today");
 
     html += '<div class="card"><div class="eyebrow">Today</div>' + renderHealthRows(todayKey) + '</div>';
 
@@ -438,11 +561,13 @@
 
     if (state.editingHealthDate) {
       var label = new Date(state.editingHealthDate).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
-      html += '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">' +
+      html += '<div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
         '<span class="mono" style="font-size:12px;color:var(--muted);">' + label + '</span>' +
-        '<button class="del-btn" data-action="close-health-edit">✕</button></div>' +
-        renderHealthRows(state.editingHealthDate) + '</div>';
+        '<button class="del-btn" data-action="close-health-edit">✕</button></div>';
+      html += renderHydrationCard(state.editingHealthDate, "edit");
+      html += '<div style="margin-top:12px;">' + renderHealthRows(state.editingHealthDate) + '</div>';
+      html += '</div>';
     }
     html += '</div>';
 
@@ -487,12 +612,27 @@
       healthLogs = Object.assign({}, healthLogs); healthLogs[dateKey] = updated;
       persistHealth(); render();
     }
-    else if (action === "water-adjust") {
-      var dk = btn.dataset.date, delta = parseInt(btn.dataset.delta, 10);
-      var lg = getHealthLog(dk);
-      var next = Math.max(0, Math.min(WATER_GOAL + 4, (lg.water || 0) + delta));
-      healthLogs = Object.assign({}, healthLogs); healthLogs[dk] = Object.assign({}, lg, { water: next });
+    else if (action === "add-water") {
+      var dk1 = btn.dataset.date, amt1 = parseInt(btn.dataset.amount, 10);
+      var lg1 = getHealthLog(dk1);
+      healthLogs = Object.assign({}, healthLogs);
+      healthLogs[dk1] = Object.assign({}, lg1, { waterMl: (lg1.waterMl || 0) + amt1 });
       persistHealth(); render();
+    }
+    else if (action === "add-coffee") {
+      var dk2 = btn.dataset.date, amt2 = parseInt(btn.dataset.amount, 10);
+      var lg2 = getHealthLog(dk2);
+      healthLogs = Object.assign({}, healthLogs);
+      healthLogs[dk2] = Object.assign({}, lg2, { waterMl: (lg2.waterMl || 0) + amt2, caffeineMl: (lg2.caffeineMl || 0) + amt2 });
+      persistHealth(); render();
+    }
+    else if (action === "reset-hydration") {
+      var dk3 = btn.dataset.date;
+      if (confirm("Reset today's water and caffeine to 0?")) {
+        healthLogs = Object.assign({}, healthLogs);
+        healthLogs[dk3] = Object.assign({}, getHealthLog(dk3), { waterMl: 0, caffeineMl: 0 });
+        persistHealth(); render();
+      }
     }
     else if (action === "cal-prev") {
       state.calendarMonth = new Date(state.calendarMonth.getFullYear(), state.calendarMonth.getMonth() - 1, 1);
@@ -558,30 +698,36 @@
     if (!state.notifEnabled) {
       if ("Notification" in window) {
         Notification.requestPermission().then(function (perm) {
-          if (perm === "granted") { state.notifEnabled = true; render(); }
+          if (perm === "granted") { state.notifEnabled = true; save(STORAGE_NOTIF, true); render(); checkDueReminders(); }
         });
-      } else { state.notifEnabled = true; render(); }
+      } else { state.notifEnabled = true; save(STORAGE_NOTIF, true); render(); }
     } else {
-      state.notifEnabled = false; render();
+      state.notifEnabled = false; save(STORAGE_NOTIF, false); render();
     }
   }
 
-  setInterval(function () {
+  function checkDueReminders() {
     if (!state.notifEnabled) return;
     var now = Date.now();
     tasks.forEach(function (t) {
       if (t.done || !t.dueDate || state.notifiedIds[t.id]) return;
       var dueTime = new Date(t.dueDate).getTime();
-      if (dueTime <= now && dueTime > now - 60000) {
+      if (dueTime <= now) {
         if ("Notification" in window && Notification.permission === "granted") {
           new Notification("Flow reminder", { body: t.text });
         }
         state.notifiedIds[t.id] = true;
       }
     });
-  }, 15000);
+  }
+
+  setInterval(checkDueReminders, 15000);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") checkDueReminders();
+  });
 
   render();
+  checkDueReminders();
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch(function () {});
