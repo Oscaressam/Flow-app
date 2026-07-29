@@ -22,3 +22,24 @@ self.addEventListener("fetch", (event) => {
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );
 });
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {}
+  const title = data.title || "Flow reminder";
+  const body = data.body || "";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "icon-192.png",
+      badge: "icon-192.png",
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow("./index.html"));
+});
