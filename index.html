@@ -173,6 +173,17 @@
     cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
   .tag-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
 
+  .lib-row { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+  .lib-cover { flex-shrink:0; width:92px; aspect-ratio:2/3; border-radius:12px; border:1px solid var(--hairline);
+    background-size:cover; background-position:center; background-color:var(--tile-empty); position:relative;
+    cursor:pointer; padding:0; overflow:hidden; }
+  .lib-cover-fallback { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:8px;
+    font-size:10px; font-weight:700; text-align:center; color:var(--text); }
+  .lib-progress { position:absolute; bottom:0; left:0; right:0; height:5px; background:rgba(0,0,0,0.35); }
+  .lib-progress-fill { height:100%; background:linear-gradient(90deg,#22D3EE,#4F46E5); }
+  .lib-photo-add { flex-shrink:0; width:64px; height:64px; border-radius:10px; border:1px dashed var(--hairline-strong);
+    display:flex; align-items:center; justify-content:center; color:var(--dim); cursor:pointer; font-size:18px; }
+
   .empty { font-size:13px; color:var(--dim); text-align:center; padding:20px 0; }
 </style>
 </head>
@@ -188,6 +199,7 @@
   var STORAGE_NOTIF = "flow-notif-v1";
   var STORAGE_THEME = "flow-theme-v1";
   var STORAGE_GEO = "flow-geo-v1";
+  var STORAGE_LIBRARY = "flow-library-v1";
   var WATER_GOAL_ML = 3000;
   var CAFFEINE_MG_PER_ML = 95 / 240;
   var VAPID_PUBLIC_KEY = "BGY-SgdY5MSwdE32mnMAtuJbQh7ClMXS3xs1RRzHHJcUAtylb-6L2iTm5RuOZ_1JOnkb27kyoZCt2DkjRAd_SeI";
@@ -201,7 +213,11 @@
     { id: "home", name: "Home", short: "Home", color: "#F472B6",
       keywords: ["buy","home","apartment","furniture","paint","kitchen","curtain","plant","clean","repair","grocery","fix the","decor","living room"] },
     { id: "books", name: "Books to Read", short: "Books", color: "#34D399",
-      keywords: ["book","read","novel","author","chapter","audiobook"] },
+      keywords: [] },
+    { id: "movies", name: "Movies", short: "Movies", color: "#EF4444",
+      keywords: [] },
+    { id: "series", name: "Series", short: "Series", color: "#FB923C",
+      keywords: [] },
     { id: "health", name: "Health", short: "Health", color: "#2DD4BF",
       keywords: ["gym","workout","supplement","vitamin","doctor","appointment","protein","health","checkup","dentist"] },
     { id: "notes", name: "Notes", short: "Notes", color: "#60A5FA",
@@ -271,6 +287,116 @@
   if (!healthLogs) { healthLogs = seedHealth(); save(STORAGE_HEALTH, healthLogs); }
   var storedNotif = load(STORAGE_NOTIF);
 
+  var libraryItems = load(STORAGE_LIBRARY) || [];
+  function persistLibrary() { save(STORAGE_LIBRARY, libraryItems); }
+
+  var LIBRARY_STATUSES = {
+    book: [
+      { id: "want", label: "Need to buy", icon: "🛒" },
+      { id: "reading", label: "Reading now", icon: "📖" },
+      { id: "read", label: "Already read", icon: "✅" }
+    ],
+    movie: [
+      { id: "want", label: "Want to watch", icon: "🍿" },
+      { id: "watching", label: "Watching", icon: "▶️" },
+      { id: "watched", label: "Watched", icon: "✅" }
+    ],
+    series: [
+      { id: "want", label: "Want to watch", icon: "🍿" },
+      { id: "watching", label: "Watching", icon: "▶️" },
+      { id: "watched", label: "Watched", icon: "✅" }
+    ]
+  };
+
+  // ---------- IndexedDB for photos (localStorage is too small for images) ----------
+  var MEDIA_DB_NAME = "flow-media-db";
+  function openMediaDB() {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open(MEDIA_DB_NAME, 1);
+      req.onupgradeneeded = function (e) { e.target.result.createObjectStore("photos"); };
+      req.onsuccess = function (e) { resolve(e.target.result); };
+      req.onerror = function (e) { reject(e); };
+    });
+  }
+  function savePhoto(id, dataUrl) {
+    return openMediaDB().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction("photos", "readwrite");
+        tx.objectStore("photos").put(dataUrl, id);
+        tx.oncomplete = function () { resolve(); };
+        tx.onerror = function (e) { reject(e); };
+      });
+    });
+  }
+  function getPhoto(id) {
+    return openMediaDB().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction("photos", "readonly");
+        var req = tx.objectStore("photos").get(id);
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function (e) { reject(e); };
+      });
+    });
+  }
+  function deletePhotoFromDB(id) {
+    return openMediaDB().then(function (db) {
+      return new Promise(function (resolve) {
+        var tx = db.transaction("photos", "readwrite");
+        tx.objectStore("photos").delete(id);
+        tx.oncomplete = function () { resolve(); };
+      });
+    });
+  }
+  function compressImageFile(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        var img = new Image();
+        img.onload = function () {
+          var maxW = 900;
+          var scale = Math.min(1, maxW / img.width);
+          var canvas = document.createElement("canvas");
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          var ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.72));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  function loadPhotoThumbnails() {
+    document.querySelectorAll("img[data-photo-id]").forEach(function (img) {
+      var pid = img.dataset.photoId;
+      if (img.src && img.src.indexOf("data:") === 0) return;
+      getPhoto(pid).then(function (dataUrl) { if (dataUrl) img.src = dataUrl; }).catch(function () {});
+    });
+  }
+
+  function fetchBookCover(title, author) {
+    var q = encodeURIComponent(title + (author ? " " + author : ""));
+    return fetch("https://openlibrary.org/search.json?q=" + q + "&limit=1")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.docs && data.docs[0] && data.docs[0].cover_i) {
+          return "https://covers.openlibrary.org/b/id/" + data.docs[0].cover_i + "-M.jpg";
+        }
+        return null;
+      })
+      .catch(function () { return null; });
+  }
+  function fetchMediaCover(type, title) {
+    var kind = type === "movie" ? "movie" : "tv";
+    return fetch(API_BASE + "/api/media-search?type=" + kind + "&q=" + encodeURIComponent(title))
+      .then(function (r) { return r.json(); })
+      .then(function (data) { return data && data.posterUrl ? data.posterUrl : null; })
+      .catch(function () { return null; });
+  }
+
   var state = {
     filter: "all",
     inputValue: "",
@@ -281,7 +407,9 @@
     editingHealthDate: null,
     themeMode: load(STORAGE_THEME) || "auto",
     justCompletedId: null,
-    editingNoteId: null
+    editingNoteId: null,
+    libraryComposerOpen: false,
+    editingLibraryId: null
   };
 
   function persistTasks() { save(STORAGE_TASKS, tasks); syncTasksToServer(); }
@@ -490,6 +618,12 @@
     } else if (state.filter === "notes") {
       html += renderNotesComposer();
       html += renderTaskList();
+    } else if (state.filter === "books") {
+      html += renderLibraryView("book");
+    } else if (state.filter === "movies") {
+      html += renderLibraryView("movie");
+    } else if (state.filter === "series") {
+      html += renderLibraryView("series");
     } else {
       html += renderTaskList();
     }
@@ -497,6 +631,7 @@
     html += '</div>';
     root.innerHTML = html;
     attachInputHandlers();
+    loadPhotoThumbnails();
   }
 
   function renderTaskTile(t) {
@@ -619,6 +754,112 @@
     items.forEach(function (t) { gridHtml += renderTaskTile(t); });
     gridHtml += '</div>';
     return gridHtml;
+  }
+
+  function renderLibraryView(type) {
+    var items = libraryItems.filter(function (i) { return i.type === type; });
+    var statuses = LIBRARY_STATUSES[type];
+    var addLabel = type === "book" ? "a book" : (type === "movie" ? "a movie" : "a show");
+
+    var html = '<div class="card">' +
+      '<button class="chip" data-action="toggle-lib-composer" style="background:#4F46E5;color:#fff;border-color:transparent;">' +
+        (state.libraryComposerOpen ? "− Close" : "+ Add " + addLabel) +
+      '</button>';
+
+    if (state.libraryComposerOpen) {
+      html += '<div style="margin-top:14px;">' +
+        '<input id="lib-title" type="text" class="due-input" style="width:100%;margin-bottom:8px;box-sizing:border-box;" placeholder="Title" />' +
+        (type === "book" ? '<input id="lib-author" type="text" class="due-input" style="width:100%;margin-bottom:8px;box-sizing:border-box;" placeholder="Author (optional)" />' : "") +
+        (type === "book" ? '<input id="lib-pages" type="number" class="due-input" style="width:100%;margin-bottom:8px;box-sizing:border-box;" placeholder="Total pages" />' : "") +
+        '<select id="lib-status" class="due-input" style="width:100%;margin-bottom:10px;box-sizing:border-box;">' +
+          statuses.map(function (s) { return '<option value="' + s.id + '">' + s.icon + " " + s.label + "</option>"; }).join("") +
+        '</select>' +
+        '<button id="lib-add-btn" data-lib-type="' + type + '" class="chip" style="background:#34D399;color:#0B0D12;border-color:transparent;">Add</button>' +
+      '</div>';
+    }
+    html += '</div>';
+
+    statuses.forEach(function (s) {
+      var sectionItems = items.filter(function (i) { return i.status === s.id; });
+      html += '<div class="card"><div class="eyebrow">' + s.icon + " " + s.label + ' <span class="mono" style="margin-left:4px;">' + sectionItems.length + "</span></div>";
+      if (sectionItems.length === 0) {
+        html += '<p class="empty" style="padding:8px 0;">Nothing here yet.</p>';
+      } else {
+        html += '<div class="lib-row">';
+        sectionItems.forEach(function (item) { html += renderLibraryCover(item); });
+        html += "</div>";
+      }
+      html += "</div>";
+    });
+
+    if (state.editingLibraryId) {
+      var editItem = libraryItems.filter(function (i) { return i.id === state.editingLibraryId; })[0];
+      if (editItem) html += renderLibraryDetail(editItem);
+    }
+
+    return html;
+  }
+
+  function renderLibraryCover(item) {
+    var pct = item.type === "book" && item.totalPages ? Math.min(100, Math.round(((item.currentPage || 0) / item.totalPages) * 100)) : null;
+    return '<button class="lib-cover" data-action="open-library-item" data-id="' + item.id + '" style="' +
+      (item.coverUrl ? "background-image:url(" + item.coverUrl + ");" : "") + '">' +
+      (!item.coverUrl ? '<span class="lib-cover-fallback">' + escapeHtml(item.title) + "</span>" : "") +
+      (pct !== null ? '<div class="lib-progress"><div class="lib-progress-fill" style="width:' + pct + '%;"></div></div>' : "") +
+    "</button>";
+  }
+
+  function renderLibraryDetail(item) {
+    var statuses = LIBRARY_STATUSES[item.type];
+    var html = '<div class="card">' +
+      '<div style="display:flex;gap:12px;">' +
+        '<div class="lib-cover" style="width:76px;flex-shrink:0;' + (item.coverUrl ? "background-image:url(" + item.coverUrl + ");" : "") + '">' +
+          (!item.coverUrl ? '<span class="lib-cover-fallback">' + escapeHtml(item.title) + "</span>" : "") +
+        "</div>" +
+        '<div style="flex:1;min-width:0;">' +
+          '<p style="font-weight:700;font-size:14px;margin:0 0 2px;">' + escapeHtml(item.title) + "</p>" +
+          (item.author ? '<p class="mono" style="font-size:11px;color:var(--muted);margin:0 0 8px;">' + escapeHtml(item.author) + "</p>" : "") +
+          '<select data-role="lib-status-select" data-id="' + item.id + '" class="due-input" style="width:100%;box-sizing:border-box;">' +
+            statuses.map(function (s) { return '<option value="' + s.id + '"' + (s.id === item.status ? " selected" : "") + ">" + s.icon + " " + s.label + "</option>"; }).join("") +
+          "</select>" +
+        "</div>" +
+        '<button class="tile-del" data-action="close-library-item">✕</button>' +
+      "</div>";
+
+    if (item.type === "book") {
+      var pct = item.totalPages ? Math.min(100, Math.round(((item.currentPage || 0) / item.totalPages) * 100)) : 0;
+      html += '<div style="margin-top:14px;">' +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:6px;">' +
+          "<span>Page " + (item.currentPage || 0) + " of " + (item.totalPages || "?") + "</span><span>" + pct + "%</span>" +
+        "</div>" +
+        '<div style="height:8px;border-radius:999px;background:var(--tile-empty);overflow:hidden;margin-bottom:8px;">' +
+          '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#22D3EE,#4F46E5);"></div>' +
+        "</div>" +
+        '<input type="number" data-role="lib-page-input" data-id="' + item.id + '" value="' + (item.currentPage || 0) + '" class="due-input" style="width:100%;box-sizing:border-box;" placeholder="Update current page" />' +
+      "</div>";
+    }
+
+    html += '<div style="margin-top:14px;">' +
+      '<div class="eyebrow" style="margin-bottom:6px;">Notes</div>' +
+      '<textarea data-role="lib-notes" data-id="' + item.id + '" class="note-edit-area" placeholder="Thoughts, quotes, reminders…">' + escapeHtml(item.notes || "") + "</textarea>" +
+    "</div>";
+
+    html += '<div style="margin-top:14px;">' +
+      '<div class="eyebrow" style="margin-bottom:6px;">Photos</div>' +
+      '<div class="lib-row">' +
+        (item.photoIds || []).map(function (pid) {
+          return '<div style="position:relative;flex-shrink:0;">' +
+            '<img data-photo-id="' + pid + '" style="width:64px;height:64px;object-fit:cover;border-radius:10px;background:var(--tile-empty);display:block;" />' +
+            '<button class="tile-del" data-action="delete-photo" data-id="' + item.id + '" data-photo="' + pid + '" style="position:absolute;top:-6px;right:-6px;background:var(--bg);border-radius:50%;">✕</button>' +
+          "</div>";
+        }).join("") +
+        '<label class="lib-photo-add" for="lib-photo-input">＋<input type="file" accept="image/*" id="lib-photo-input" data-role="lib-photo-file" data-id="' + item.id + '" style="display:none;" /></label>' +
+      "</div>" +
+    "</div>";
+
+    html += '<button class="tile-del" data-action="delete-library-item" data-id="' + item.id + '" style="margin-top:14px;color:#F87171;">🗑 Delete</button>';
+    html += "</div>";
+    return html;
   }
 
   function renderNotesComposer() {
@@ -809,6 +1050,29 @@
     else if (action === "toggle-notif") { toggleNotif(); }
     else if (action === "cycle-theme") { cycleTheme(); }
     else if (action === "edit-note") { state.editingNoteId = id; render(); }
+    else if (action === "toggle-lib-composer") { state.libraryComposerOpen = !state.libraryComposerOpen; render(); }
+    else if (action === "open-library-item") { state.editingLibraryId = id; render(); }
+    else if (action === "close-library-item") { state.editingLibraryId = null; render(); }
+    else if (action === "delete-library-item") {
+      if (confirm("Delete this? This can't be undone.")) {
+        var delItem = libraryItems.filter(function (i) { return i.id === id; })[0];
+        if (delItem && delItem.photoIds) delItem.photoIds.forEach(function (pid) { deletePhotoFromDB(pid); });
+        libraryItems = libraryItems.filter(function (i) { return i.id !== id; });
+        persistLibrary();
+        state.editingLibraryId = null;
+        render();
+      }
+    }
+    else if (action === "delete-photo") {
+      var photoId = btn.dataset.photo;
+      libraryItems = libraryItems.map(function (i) {
+        if (i.id !== id) return i;
+        return Object.assign({}, i, { photoIds: (i.photoIds || []).filter(function (p) { return p !== photoId; }) });
+      });
+      deletePhotoFromDB(photoId);
+      persistLibrary();
+      render();
+    }
     else if (action === "health-toggle") {
       var dateKey = btn.dataset.date, field = btn.dataset.field;
       var log = getHealthLog(dateKey);
@@ -851,7 +1115,33 @@
   });
 
   document.addEventListener("change", function (e) {
-    if (e.target.matches('[data-role="cat-select"]')) {
+    if (e.target.matches('[data-role="lib-status-select"]')) {
+      var libId = e.target.dataset.id;
+      libraryItems = libraryItems.map(function (i) { return i.id === libId ? Object.assign({}, i, { status: e.target.value }) : i; });
+      persistLibrary();
+      render();
+    } else if (e.target.matches('[data-role="lib-page-input"]')) {
+      var pageId = e.target.dataset.id;
+      var pageVal = parseInt(e.target.value, 10) || 0;
+      libraryItems = libraryItems.map(function (i) { return i.id === pageId ? Object.assign({}, i, { currentPage: pageVal }) : i; });
+      persistLibrary();
+      render();
+    } else if (e.target.matches('[data-role="lib-photo-file"]')) {
+      var photoTargetId = e.target.dataset.id;
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      compressImageFile(file).then(function (dataUrl) {
+        var photoId = makeId();
+        savePhoto(photoId, dataUrl).then(function () {
+          libraryItems = libraryItems.map(function (i) {
+            if (i.id !== photoTargetId) return i;
+            return Object.assign({}, i, { photoIds: (i.photoIds || []).concat([photoId]) });
+          });
+          persistLibrary();
+          render();
+        });
+      }).catch(function () { alert("Couldn't process that photo — try a different one."); });
+    } else if (e.target.matches('[data-role="cat-select"]')) {
       var id1 = e.target.dataset.id;
       tasks = tasks.map(function (t) { return t.id === id1 ? Object.assign({}, t, { categoryId: e.target.value }) : t; });
       persistTasks();
@@ -931,6 +1221,53 @@
         persistTasks();
         state.editingNoteId = null;
         render();
+      });
+    }
+    var libNotesArea = document.querySelector('[data-role="lib-notes"]');
+    if (libNotesArea) {
+      libNotesArea.addEventListener("blur", function () {
+        var libId = libNotesArea.dataset.id;
+        var newNotes = libNotesArea.value;
+        libraryItems = libraryItems.map(function (i) { return i.id === libId ? Object.assign({}, i, { notes: newNotes }) : i; });
+        persistLibrary();
+      });
+    }
+
+    var libAddBtn = document.getElementById("lib-add-btn");
+    if (libAddBtn) {
+      libAddBtn.addEventListener("click", function () {
+        var type = libAddBtn.dataset.libType;
+        var titleEl = document.getElementById("lib-title");
+        var title = titleEl ? titleEl.value.trim() : "";
+        if (!title) { alert("Give it a title first."); return; }
+        var authorEl = document.getElementById("lib-author");
+        var pagesEl = document.getElementById("lib-pages");
+        var statusEl = document.getElementById("lib-status");
+        var newItem = {
+          id: makeId(),
+          type: type,
+          title: title,
+          author: authorEl ? authorEl.value.trim() : "",
+          totalPages: pagesEl && pagesEl.value ? parseInt(pagesEl.value, 10) : null,
+          currentPage: 0,
+          status: statusEl ? statusEl.value : "want",
+          coverUrl: null,
+          notes: "",
+          photoIds: [],
+          createdAt: Date.now()
+        };
+        libraryItems = [newItem].concat(libraryItems);
+        persistLibrary();
+        state.libraryComposerOpen = false;
+        render();
+
+        var coverPromise = type === "book" ? fetchBookCover(title, newItem.author) : fetchMediaCover(type, title);
+        coverPromise.then(function (coverUrl) {
+          if (!coverUrl) return;
+          libraryItems = libraryItems.map(function (i) { return i.id === newItem.id ? Object.assign({}, i, { coverUrl: coverUrl }) : i; });
+          persistLibrary();
+          render();
+        });
       });
     }
   }
