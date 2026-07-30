@@ -25,7 +25,7 @@ module.exports = async (req, res) => {
     try { tasks = tasksRaw ? JSON.parse(tasksRaw) : []; } catch (e) { parseError = String(e); }
 
     const now = Date.now();
-    const dueNow = tasks.filter((t) => !t.done && t.dueDate && new Date(t.dueDate).getTime() <= now);
+    const dueNow = tasks.filter((t) => !t.done && (t.dueDateUTC || t.dueDate) && new Date(t.dueDateUTC || t.dueDate).getTime() <= now);
 
     let subEndpointHost = null;
     if (subRaw) {

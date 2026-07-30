@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
 
     for (const t of tasks) {
       if (t.done || !t.dueDate || notified[t.id]) continue;
-      const dueTime = new Date(t.dueDate).getTime();
+      const dueTime = new Date(t.dueDateUTC || t.dueDate).getTime();
       if (dueTime <= now) {
         try {
           await webpush.sendNotification(

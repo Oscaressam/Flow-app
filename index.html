@@ -849,6 +849,14 @@
     }
   }
 
+  function tasksForServer() {
+    return tasks.map(function (t) {
+      return Object.assign({}, t, {
+        dueDateUTC: t.dueDate ? new Date(t.dueDate).toISOString() : null
+      });
+    });
+  }
+
   function urlBase64ToUint8Array(base64String) {
     var padding = "=".repeat((4 - (base64String.length % 4)) % 4);
     var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -866,7 +874,7 @@
         fetch(API_BASE + "/api/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tasks: tasks })
+          body: JSON.stringify({ tasks: tasksForServer() })
         }).catch(function () {});
       });
     });
@@ -884,7 +892,7 @@
           fetch(API_BASE + "/api/subscribe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ subscription: sub, tasks: tasks })
+            body: JSON.stringify({ subscription: sub, tasks: tasksForServer() })
           }).catch(function () {});
         }).catch(function (e) { console.error("push subscribe failed", e); });
       });
