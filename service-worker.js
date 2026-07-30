@@ -1,5 +1,5 @@
-const CACHE_NAME = "mindorg-cache-v6";
-const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./brain-hero.png"];
+const CACHE_NAME = "mindorg-cache-v7";
+const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./brain-hero.png", "./badge-72.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -43,13 +43,19 @@ self.addEventListener("push", (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch (e) {}
-  const title = data.title || "MindORG reminder";
+  // title = the task itself; body = its category (+ due time)
+  const title = data.title || "MindORG";
   const body = data.body || "";
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon: "icon-192.png",
-      badge: "icon-192.png",
+      // no `icon` on purpose: Chrome renders it as the large thumbnail on the
+      // right of the notification, which we don't want. `badge` is the small
+      // monochrome status-bar mark and is the only image we keep.
+      badge: "badge-72.png",
+      tag: data.tag || undefined,
+      renotify: false,
+      silent: false,
     })
   );
 });

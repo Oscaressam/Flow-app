@@ -1,5 +1,33 @@
 const webpush = require("web-push");
 
+// mirrors CATEGORIES in index.html — used to label the notification
+const CATEGORY_LABEL = {
+  work: "WORK",
+  vonarson: "VONARSON",
+  home: "HOME",
+  books: "BOOKS",
+  movies: "MOVIES",
+  series: "SERIES",
+  health: "HEALTH",
+  notes: "NOTES",
+  inbox: "INBOX",
+};
+
+function buildBody(t) {
+  const label = CATEGORY_LABEL[t.categoryId] || "INBOX";
+  const when = t.dueDateUTC || t.dueDate;
+  if (!when) return label;
+  const d = new Date(when);
+  if (isNaN(d.getTime())) return label;
+  // render in Cairo time so it matches what the phone shows
+  const time = d.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Africa/Cairo",
+  });
+  return label + "  ·  due " + time;
+}
+
 async function redisCmd(cmd) {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -20,7 +48,7 @@ module.exports = async (req, res) => {
   }
   try {
     webpush.setVapidDetails(
-      "mailto:flow-app@example.com",
+      "mailto:mindorg@vonarson.com",
       process.env.VAPID_PUBLIC_KEY,
       process.env.VAPID_PRIVATE_KEY
     );
@@ -48,7 +76,7 @@ module.exports = async (req, res) => {
         try {
           await webpush.sendNotification(
             subscription,
-            JSON.stringify({ title: "Flow reminder", body: t.text })
+            JSON.stringify({ title: t.text, body: buildBody(t), tag: "task-" + t.id })
           );
           sent++;
         } catch (e) {
