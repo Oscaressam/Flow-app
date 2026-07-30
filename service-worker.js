@@ -1,5 +1,5 @@
-const CACHE_NAME = "mindorg-cache-v4";
-const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+const CACHE_NAME = "mindorg-cache-v5";
+const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./brain-hero.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
