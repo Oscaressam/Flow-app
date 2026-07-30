@@ -1,6 +1,6 @@
 {
-  "name": "Flow",
-  "short_name": "Flow",
+  "name": "MindORG",
+  "short_name": "MindORG",
   "description": "Capture tasks and daily health check-ins, sorted automatically.",
   "start_url": "./index.html",
   "scope": "./",

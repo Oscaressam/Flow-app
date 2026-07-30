@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Flow</title>
+<title>MindORG</title>
 <meta name="theme-color" content="#0F1117" />
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon-192.png" />
@@ -579,7 +579,7 @@
 
     var themeIcon = state.themeMode === "auto" ? "🌓" : (state.themeMode === "light" ? "☀️" : "🌙");
     html += '<div class="header">' +
-      '<div class="brand"><div class="brand-bar"></div><div class="brand-name">Flow</div></div>' +
+      '<div class="brand"><div class="brand-bar"></div><div class="brand-name">MindORG</div></div>' +
       '<div class="stats mono">' +
         '<button class="theme-btn" data-action="cycle-theme" title="Theme: ' + state.themeMode + '">' + themeIcon + '</button>' +
         '<span class="stat-pill">' + openCount + ' open</span>' +
@@ -1326,7 +1326,7 @@
     if (!state.notifEnabled) {
       if ("Notification" in window) {
         if (Notification.permission === "denied") {
-          alert("Notifications are blocked for Flow at the system level. Long-press the Flow app icon → app info (ⓘ) → Notifications → turn it on, then tap the bell again.");
+          alert("Notifications are blocked for MindORG at the system level. Long-press the MindORG app icon → app info (ⓘ) → Notifications → turn it on, then tap the bell again.");
           return;
         }
         Notification.requestPermission().then(function (perm) {
@@ -1334,7 +1334,7 @@
             state.notifEnabled = true; save(STORAGE_NOTIF, true); render(); checkDueReminders();
             subscribePush();
           } else if (perm === "denied") {
-            alert("Notifications were just blocked. Long-press the Flow app icon → app info (ⓘ) → Notifications → turn it on, then tap the bell again.");
+            alert("Notifications were just blocked. Long-press the MindORG app icon → app info (ⓘ) → Notifications → turn it on, then tap the bell again.");
           }
         });
       } else {

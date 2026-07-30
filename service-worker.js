@@ -1,4 +1,4 @@
-const CACHE_NAME = "flow-cache-v2";
+const CACHE_NAME = "mindorg-cache-v3";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -43,7 +43,7 @@ self.addEventListener("push", (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch (e) {}
-  const title = data.title || "Flow reminder";
+  const title = data.title || "MindORG reminder";
   const body = data.body || "";
   event.waitUntil(
     self.registration.showNotification(title, {
