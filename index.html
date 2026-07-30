@@ -159,6 +159,20 @@
   .select-tag, .due-input { font-size:11px; border-radius:999px; padding:4px 8px; background:var(--input-bg); color:var(--text);
     border:1px solid var(--hairline-strong); font-family:inherit; }
 
+  .note-edit-area { width:100%; min-height:64px; background:transparent; border:none; outline:none; resize:vertical;
+    font-family:inherit; font-size:13px; line-height:1.4; color:var(--text); }
+  .note-tile { aspect-ratio:auto; min-height:150px; }
+  .note-tap { cursor:pointer; }
+
+  .row-item { display:flex; align-items:flex-start; gap:10px; padding:12px 0; border-bottom:1px solid var(--hairline); }
+  .row-item:last-child { border-bottom:none; }
+  .row-body { flex:1; min-width:0; }
+  .row-text { font-size:13.5px; margin:0 0 6px; color:var(--text); }
+  .row-text.done { color:var(--dim); text-decoration:line-through; }
+  .tag { font-size:11px; font-weight:600; padding:4px 9px; border-radius:999px; border:none; font-family:inherit;
+    cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
+  .tag-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+
   .empty { font-size:13px; color:var(--dim); text-align:center; padding:20px 0; }
 </style>
 </head>
@@ -266,7 +280,8 @@
     calendarMonth: (function () { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(),
     editingHealthDate: null,
     themeMode: load(STORAGE_THEME) || "auto",
-    justCompletedId: null
+    justCompletedId: null,
+    editingNoteId: null
   };
 
   function persistTasks() { save(STORAGE_TASKS, tasks); syncTasksToServer(); }
@@ -427,9 +442,10 @@
   function render() {
     var todayKey = fmtKey(new Date());
     var openCount = tasks.filter(function (t) { return !t.done && t.categoryId !== "notes"; }).length;
-    var dueSoon = tasks.filter(function (t) {
+    var dueSoonAll = tasks.filter(function (t) {
       return !t.done && t.dueDate && new Date(t.dueDate) <= endOfToday();
     }).sort(function (a, b) { return new Date(a.dueDate) - new Date(b.dueDate); });
+    var dueSoon = state.filter === "all" ? dueSoonAll : dueSoonAll.filter(function (t) { return t.categoryId === state.filter; });
 
     var html = '<div class="wrap">';
 
@@ -439,7 +455,7 @@
       '<div class="stats mono">' +
         '<button class="theme-btn" data-action="cycle-theme" title="Theme: ' + state.themeMode + '">' + themeIcon + '</button>' +
         '<span class="stat-pill">' + openCount + ' open</span>' +
-        '<button class="bell' + (state.notifEnabled ? ' on' : '') + '" data-action="toggle-notif">🔔 ' + dueSoon.length + '</button>' +
+        '<button class="bell' + (state.notifEnabled ? ' on' : '') + '" data-action="toggle-notif">🔔 ' + dueSoonAll.length + '</button>' +
       '</div></div>';
 
     var previewCat = state.inputValue.trim() ? CAT_BY_ID[categorize(state.inputValue)] : null;
@@ -487,10 +503,14 @@
     var cat = CAT_BY_ID[t.categoryId];
 
     if (t.categoryId === "notes") {
-      return '<div class="tile">' +
+      var editingNote = state.editingNoteId === t.id;
+      var body = editingNote
+        ? '<textarea class="note-edit-area" data-role="note-edit" data-id="' + t.id + '">' + escapeHtml(t.text) + '</textarea>'
+        : '<p class="tile-text note-tap" data-action="edit-note" data-id="' + t.id + '" style="-webkit-line-clamp:6;">' + escapeHtml(t.text) + '</p>';
+      return '<div class="tile note-tile" style="background:linear-gradient(160deg,' + cat.color + '14,' + cat.color + '05);">' +
         '<div class="tile-top"><span class="tile-cat-label mono" style="color:' + cat.color + '">NOTE</span>' +
         '<button class="tile-del" data-action="delete-task" data-id="' + t.id + '">✕</button></div>' +
-        '<p class="tile-text">' + escapeHtml(t.text) + '</p>' +
+        body +
         '<span class="tile-note-meta mono">' + new Date(t.createdAt).toLocaleDateString([], { month: "short", day: "numeric" }) + '</span>' +
       '</div>';
     }
@@ -530,40 +550,83 @@
     '</div>';
   }
 
+  function renderTaskRow(t) {
+    var cat = CAT_BY_ID[t.categoryId];
+    var editingCat = state.editState.type === "cat" && state.editState.id === t.id;
+    var editingDue = state.editState.type === "due" && state.editState.id === t.id;
+    var justDone = state.justCompletedId === t.id;
+
+    var catEl;
+    if (editingCat) {
+      catEl = '<select class="select-tag" data-role="cat-select" data-id="' + t.id + '">' +
+        CATEGORIES.map(function (c) { return '<option value="' + c.id + '"' + (c.id === t.categoryId ? " selected" : "") + '>' + c.short + '</option>'; }).join("") +
+      '</select>';
+    } else {
+      catEl = '<button class="tag" data-action="start-edit-cat" data-id="' + t.id + '" style="background:' + cat.color + '25;color:' + cat.color + '">' + cat.short + '</button>';
+    }
+
+    var dueHtml;
+    if (editingDue) {
+      dueHtml = '<input type="datetime-local" class="due-input" data-role="due-input" data-id="' + t.id + '" value="' + (t.dueDate || "") + '" />';
+    } else if (t.dueDate) {
+      var meta = dueMeta(t.dueDate);
+      var color = meta.overdue ? "#F87171" : "#4F46E5";
+      var shortLabel = meta.overdue ? "Overdue · " + meta.label.split(" · ")[1] : meta.label;
+      dueHtml = '<span style="display:inline-flex;align-items:center;gap:4px;">' +
+        '<button class="tag" data-action="start-edit-due" data-id="' + t.id + '" style="background:' + color + '25;color:' + color + '">⏱ ' + shortLabel + '</button>' +
+        '<button class="tile-del" data-action="clear-due" data-id="' + t.id + '">✕</button></span>';
+    } else {
+      dueHtml = '<button class="tag tag-ghost" data-action="start-edit-due" data-id="' + t.id + '" style="color:var(--dim);border:1px dashed var(--hairline-strong);background:none;">+ remind</button>';
+    }
+
+    return '<div class="row-item">' +
+      '<button class="check' + (t.done ? " done" : "") + (justDone ? " just-completed" : "") + '" data-action="toggle-done" data-id="' + t.id + '">' + (t.done ? "✓" : "") + '</button>' +
+      '<div class="row-body">' +
+        '<p class="row-text' + (t.done ? " done" : "") + '">' + escapeHtml(t.text) + '</p>' +
+        '<div class="tag-row">' + catEl + dueHtml + '</div>' +
+      '</div>' +
+      '<button class="tile-del" data-action="delete-task" data-id="' + t.id + '">✕</button>' +
+    '</div>';
+  }
+
   function renderTaskList() {
     function sortFn(a, b) {
       if (a.done !== b.done) return a.done ? 1 : -1;
       return b.createdAt - a.createdAt;
     }
-    var groups;
+
     if (state.filter === "all") {
-      groups = CATEGORIES.map(function (cat) {
+      var groupsAll = CATEGORIES.map(function (cat) {
         return { cat: cat, items: tasks.filter(function (t) { return t.categoryId === cat.id; }).sort(sortFn) };
       }).filter(function (g) { return g.items.length > 0; });
-    } else {
-      groups = [{ cat: CAT_BY_ID[state.filter], items: tasks.filter(function (t) { return t.categoryId === state.filter; }).sort(sortFn) }];
+      if (groupsAll.length === 0) {
+        return '<div class="card"><p class="empty">Nothing here yet — type above to add your first one.</p></div>';
+      }
+      var listHtml = '<div class="card" style="padding-top:6px;padding-bottom:6px;">';
+      groupsAll.forEach(function (g) {
+        listHtml += '<div class="group-label" style="color:' + g.cat.color + '"><span class="dot"></span>' + g.cat.short + '</div>';
+        g.items.forEach(function (t) { listHtml += renderTaskRow(t); });
+      });
+      listHtml += '</div>';
+      return listHtml;
     }
-    var totalItems = groups.reduce(function (sum, g) { return sum + g.items.length; }, 0);
-    if (totalItems === 0) {
+
+    var items = tasks.filter(function (t) { return t.categoryId === state.filter; }).sort(sortFn);
+    if (items.length === 0) {
       return '<div class="card"><p class="empty">Nothing here yet — type above to add your first one.</p></div>';
     }
-    var html = '<div class="tile-grid">';
-    groups.forEach(function (g) {
-      if (state.filter === "all") {
-        html += '<div class="group-label" style="grid-column:1/-1;color:' + g.cat.color + '"><span class="dot"></span>' + g.cat.short + '</div>';
-      }
-      g.items.forEach(function (t) { html += renderTaskTile(t); });
-    });
-    html += '</div>';
-    return html;
+    var gridHtml = '<div class="tile-grid">';
+    items.forEach(function (t) { gridHtml += renderTaskTile(t); });
+    gridHtml += '</div>';
+    return gridHtml;
   }
 
   function renderNotesComposer() {
     return '<div class="card" style="margin-bottom:16px;">' +
       '<div class="eyebrow">📝 Add a note</div>' +
-      '<div class="quickadd" style="margin-bottom:0;">' +
-        '<span class="qa-plus">＋</span>' +
-        '<input id="note-input" type="text" placeholder="Write a quick note…" />' +
+      '<textarea id="note-input" class="note-edit-area" placeholder="Write a note…"></textarea>' +
+      '<div style="display:flex;justify-content:flex-end;margin-top:10px;">' +
+        '<button id="note-add-btn" class="chip" style="background:#60A5FA;color:#0B0D12;border-color:transparent;">+ Add note</button>' +
       '</div>' +
     '</div>';
   }
@@ -745,6 +808,7 @@
     }
     else if (action === "toggle-notif") { toggleNotif(); }
     else if (action === "cycle-theme") { cycleTheme(); }
+    else if (action === "edit-note") { state.editingNoteId = id; render(); }
     else if (action === "health-toggle") {
       var dateKey = btn.dataset.date, field = btn.dataset.field;
       var log = getHealthLog(dateKey);
@@ -836,15 +900,37 @@
 
     var noteInput = document.getElementById("note-input");
     if (noteInput) {
-      noteInput.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") {
+      var addBtn = document.getElementById("note-add-btn");
+      if (addBtn) {
+        addBtn.addEventListener("click", function () {
           var text = noteInput.value.trim();
           if (!text) return;
           var newNote = { id: makeId(), text: text, categoryId: "notes", dueDate: null, done: false, createdAt: Date.now() };
           tasks = [newNote].concat(tasks);
           persistTasks();
           render();
+        });
+      }
+    }
+
+    var noteEditArea = document.querySelector('[data-role="note-edit"]');
+    if (noteEditArea) {
+      noteEditArea.focus();
+      noteEditArea.setSelectionRange(noteEditArea.value.length, noteEditArea.value.length);
+      noteEditArea.addEventListener("blur", function () {
+        var id = noteEditArea.dataset.id;
+        var newText = noteEditArea.value.trim();
+        tasks = tasks.map(function (t) {
+          if (t.id !== id) return t;
+          return newText ? Object.assign({}, t, { text: newText }) : t;
+        });
+        if (!newText) {
+          // an emptied note gets removed rather than left blank
+          tasks = tasks.filter(function (t) { return t.id !== id; });
         }
+        persistTasks();
+        state.editingNoteId = null;
+        render();
       });
     }
   }
