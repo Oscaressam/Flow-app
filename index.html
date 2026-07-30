@@ -1359,6 +1359,20 @@
 
   render();
   checkDueReminders();
+  backfillMissingCovers();
+
+  function backfillMissingCovers() {
+    var missing = libraryItems.filter(function (i) { return !i.coverUrl; });
+    missing.forEach(function (item) {
+      var p = item.type === "book" ? fetchBookCover(item.title, item.author) : fetchMediaCover(item.type, item.title);
+      p.then(function (coverUrl) {
+        if (!coverUrl) return;
+        libraryItems = libraryItems.map(function (i) { return i.id === item.id ? Object.assign({}, i, { coverUrl: coverUrl }) : i; });
+        persistLibrary();
+        render();
+      });
+    });
+  }
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch(function () {});
