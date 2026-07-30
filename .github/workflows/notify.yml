@@ -11,7 +11,20 @@ jobs:
     steps:
       - name: Check due reminders
         run: |
-          curl -s -X POST "$ENDPOINT" -H "Authorization: Bearer $CRON_SECRET"
+          echo "Endpoint set: $([ -n "$ENDPOINT" ] && echo yes || echo no) (length: ${#ENDPOINT})"
+          echo "Secret set: $([ -n "$CRON_SECRET" ] && echo yes || echo no) (length: ${#CRON_SECRET})"
+          if [ -z "$ENDPOINT" ] || [ -z "$CRON_SECRET" ]; then
+            echo "ERROR: one of the secrets is empty. Re-check NOTIFY_ENDPOINT and CRON_SECRET in repo settings."
+            exit 1
+          fi
+          http_code=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST "$ENDPOINT" -H "Authorization: Bearer $CRON_SECRET")
+          echo "HTTP status: $http_code"
+          echo "Response body:"
+          cat /tmp/resp.json || true
+          echo ""
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            exit 1
+          fi
         env:
           ENDPOINT: ${{ secrets.NOTIFY_ENDPOINT }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
