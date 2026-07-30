@@ -1,8 +1,6 @@
-name: Flow reminder check
+name: Flow reminder check (disabled - cron-job.org handles this now)
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
 jobs:
