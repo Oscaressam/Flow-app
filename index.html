@@ -923,18 +923,10 @@
   }
 
   function checkDueReminders() {
-    if (!state.notifEnabled) return;
-    var now = Date.now();
-    tasks.forEach(function (t) {
-      if (t.done || !t.dueDate || state.notifiedIds[t.id]) return;
-      var dueTime = new Date(t.dueDate).getTime();
-      if (dueTime <= now) {
-        if ("Notification" in window && Notification.permission === "granted") {
-          new Notification("Flow reminder", { body: t.text });
-        }
-        state.notifiedIds[t.id] = true;
-      }
-    });
+    // Local fallback removed — this previously fired a notification directly
+    // from the page, which only works while the app is open and was masking
+    // whether real background push is actually functioning. Real due-reminder
+    // delivery now happens exclusively via the server push pipeline.
   }
 
   setInterval(checkDueReminders, 15000);
