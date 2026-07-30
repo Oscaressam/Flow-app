@@ -894,13 +894,21 @@
   function toggleNotif() {
     if (!state.notifEnabled) {
       if ("Notification" in window) {
+        if (Notification.permission === "denied") {
+          alert("Notifications are blocked for Flow at the system level. Long-press the Flow app icon → app info (ⓘ) → Notifications → turn it on, then tap the bell again.");
+          return;
+        }
         Notification.requestPermission().then(function (perm) {
           if (perm === "granted") {
             state.notifEnabled = true; save(STORAGE_NOTIF, true); render(); checkDueReminders();
             subscribePush();
+          } else if (perm === "denied") {
+            alert("Notifications were just blocked. Long-press the Flow app icon → app info (ⓘ) → Notifications → turn it on, then tap the bell again.");
           }
         });
-      } else { state.notifEnabled = true; save(STORAGE_NOTIF, true); render(); }
+      } else {
+        alert("This browser doesn't support notifications.");
+      }
     } else {
       state.notifEnabled = false; save(STORAGE_NOTIF, false); render();
     }
