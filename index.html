@@ -268,6 +268,136 @@
     *, *::before, *::after { animation:none !important; transition:none !important; }
     .k-r { opacity:1 !important; transform:none !important; }
   }
+
+  /* ---------- icons ---------- */
+  .ico { display:inline-block; vertical-align:-.18em; flex-shrink:0; }
+  .eyebrow .ico { vertical-align:-.15em; }
+  .vessel { display:block; color:var(--muted); }
+
+  /* ---------- header ---------- */
+  .bell, .theme-btn { padding:7px 10px; line-height:0; }
+  .bell span { font-family:'JetBrains Mono',monospace; font-size:11px; margin-left:5px; line-height:1; }
+  .bell.on { color:var(--accent); }
+
+  /* ---------- quick add: collapsed trigger ---------- */
+  .qa-trigger {
+    width:100%; display:flex; align-items:center; gap:12px; cursor:pointer;
+    background:var(--glass); border:1px solid var(--glass-border); border-radius:20px;
+    padding:11px 14px; font-family:inherit; text-align:left;
+    backdrop-filter:blur(var(--glass-blur)) saturate(170%);
+    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(170%);
+    box-shadow:0 10px 30px -18px var(--shadow), inset 0 1px 0 var(--glass-hi);
+    transition:transform .2s cubic-bezier(.16,1,.3,1), border-color .2s;
+  }
+  .qa-trigger:active { transform:scale(.985); }
+  .qa-trigger-text { font-size:14px; color:var(--muted); }
+  .qa-orb {
+    width:34px; height:34px; border-radius:50%; flex-shrink:0; line-height:0;
+    background:linear-gradient(135deg,var(--accent-2),var(--accent)); color:var(--on-accent);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 16px -3px var(--accent-glow);
+    animation:qaBreathe 3.6s ease-in-out infinite;
+  }
+  @keyframes qaBreathe {
+    0%,100% { box-shadow:0 4px 16px -3px var(--accent-glow); transform:scale(1); }
+    50%     { box-shadow:0 6px 26px -2px var(--accent-glow); transform:scale(1.06); }
+  }
+
+  /* ---------- quick add: expanded ---------- */
+  .qa-expand { animation:qaOpen .42s cubic-bezier(.16,1,.3,1); transform-origin:left center; }
+  @keyframes qaOpen {
+    from { opacity:0; transform:scaleX(.55) translateY(-4px); }
+    to   { opacity:1; transform:none; }
+  }
+  .qa-expand-hint { animation:kRise .5s cubic-bezier(.16,1,.3,1) .1s both; }
+  .qa-plus { width:26px; height:26px; line-height:0; }
+  .qa-close {
+    background:none; border:none; color:var(--dim); cursor:pointer; padding:4px;
+    line-height:0; flex-shrink:0; border-radius:50%;
+  }
+  .qa-close:active { background:var(--surface-1); }
+
+  /* ---------- compact vitals ---------- */
+  .vitals-card { padding:16px; }
+  .vitals-head { display:flex; align-items:center; gap:16px; }
+  .ring-wrap { position:relative; width:98px; height:98px; flex-shrink:0; }
+  .ring-arc {
+    stroke-dashoffset:var(--arc-full);
+    animation:ringDraw 1.5s cubic-bezier(.16,1,.3,1) .25s forwards;
+    filter:drop-shadow(0 0 6px var(--accent-glow));
+  }
+  @keyframes ringDraw { to { stroke-dashoffset:var(--arc-to); } }
+  .ring-mid {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; pointer-events:none;
+  }
+  .ring-mid b { font-size:22px; line-height:1; }
+  .ring-mid s { font-size:9px; color:var(--dim); text-decoration:none; margin-top:3px; }
+
+  .vitals-side { flex:1; min-width:0; position:relative; }
+  .vs-line { display:flex; align-items:baseline; gap:7px; padding:5px 0; }
+  .vs-ico { color:var(--accent); line-height:0; align-self:center; }
+  .vs-line b { font-size:20px; line-height:1; }
+  .vs-line s { font-size:10.5px; color:var(--muted); text-decoration:none; }
+  .vs-reset {
+    position:absolute; top:-2px; right:0; background:none; border:none;
+    color:var(--dim); cursor:pointer; padding:5px; line-height:0; border-radius:50%;
+  }
+  .vs-reset:active { background:var(--surface-1); }
+
+  .cutout-row { margin-top:14px; gap:8px; }
+  .cutout-btn { padding:10px 4px; border-radius:16px; }
+
+  /* ---------- habit pills ---------- */
+  .habit-row { display:flex; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--hairline); }
+  .habit {
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;
+    background:var(--surface-1); border:1px solid var(--hairline-strong);
+    border-radius:14px; padding:10px 4px; cursor:pointer; font-family:inherit;
+    color:var(--muted); transition:transform .16s cubic-bezier(.16,1,.3,1), background .18s, color .18s, border-color .18s;
+  }
+  .habit span { font-size:10.5px; font-weight:600; }
+  .habit:active { transform:scale(.95); }
+  .habit.on {
+    background:var(--accent-soft); border-color:var(--accent); color:var(--accent);
+    box-shadow:0 0 16px -6px var(--accent-glow);
+  }
+
+  /* ---------- slim streak strip ---------- */
+  .streak-strip { display:flex; gap:4px; margin:0 2px 16px; height:26px; }
+  .streak-strip i { flex:1; border-radius:4px; display:block; min-width:0; }
+
+  /* ---------- focus split ---------- */
+  .split-lead { display:flex; align-items:baseline; gap:9px; margin-bottom:12px; }
+  .split-lead b { font-size:30px; line-height:1; }
+  .split-lead span { font-size:12.5px; color:var(--muted); line-height:1.3; }
+  .split-bar { display:flex; gap:3px; height:12px; margin-bottom:11px; }
+  .split-bar i {
+    display:block; border-radius:3px; transform-origin:left;
+    animation:splitIn .7s cubic-bezier(.16,1,.3,1) both;
+  }
+  @keyframes splitIn { from { transform:scaleX(0); } }
+  .split-legend { display:flex; flex-wrap:wrap; gap:9px 14px; }
+  .sl { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
+  .sl i { width:7px; height:7px; border-radius:2px; display:block; }
+  .sl b { color:var(--text); font-size:11px; }
+
+  /* ---------- momentum ---------- */
+  .mo-bars { display:flex; align-items:flex-end; gap:7px; height:88px; margin:4px 0 2px; }
+  .mo-col { flex:1; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; gap:6px; }
+  .mo-col i {
+    width:100%; border-radius:5px; display:flex; align-items:flex-start; justify-content:center;
+    background:linear-gradient(180deg,var(--accent-2),var(--accent));
+    box-shadow:0 0 12px -4px var(--accent-glow);
+    transform:scaleY(0); transform-origin:bottom;
+    animation:moUp .65s cubic-bezier(.16,1,.3,1) both;
+  }
+  .mo-col i.zero { background:var(--surface-1); box-shadow:none; }
+  .mo-col i b { font-size:9.5px; color:var(--on-accent); padding-top:3px; font-weight:700; }
+  @keyframes moUp { from { transform:scaleY(0); } }
+  .mo-col s { font-size:9.5px; color:var(--dim); text-decoration:none; }
+  .mo-col s.now { color:var(--accent); font-weight:700; }
+  .mo-note { font-size:11.5px; color:var(--muted); margin-top:9px; }
 </style>
 </head>
 <body>
@@ -375,19 +505,19 @@
 
   var LIBRARY_STATUSES = {
     book: [
-      { id: "want", label: "Need to buy", icon: "🛒" },
-      { id: "reading", label: "Reading now", icon: "📖" },
-      { id: "read", label: "Already read", icon: "✅" }
+      { id: "want", label: "Need to buy", iconName: "cart" },
+      { id: "reading", label: "Reading now", iconName: "book" },
+      { id: "read", label: "Already read", iconName: "done" }
     ],
     movie: [
-      { id: "want", label: "Want to watch", icon: "🍿" },
-      { id: "watching", label: "Watching", icon: "▶️" },
-      { id: "watched", label: "Watched", icon: "✅" }
+      { id: "want", label: "Want to watch", iconName: "film" },
+      { id: "watching", label: "Watching", iconName: "play" },
+      { id: "watched", label: "Watched", iconName: "done" }
     ],
     series: [
-      { id: "want", label: "Want to watch", icon: "🍿" },
-      { id: "watching", label: "Watching", icon: "▶️" },
-      { id: "watched", label: "Watched", icon: "✅" }
+      { id: "want", label: "Want to watch", iconName: "film" },
+      { id: "watching", label: "Watching", iconName: "play" },
+      { id: "watched", label: "Watched", iconName: "done" }
     ]
   };
 
@@ -481,6 +611,7 @@
   }
 
   var state = {
+    composerOpen: false,
     filter: "all",
     inputValue: "",
     editState: { type: null, id: null },
@@ -608,44 +739,81 @@
     });
   }
 
+
+  // ---- Kinetic icon set: stroked line art, inherits currentColor ----
+  var ICON_PATHS = {
+    plus:      '<path d="M12 5v14M5 12h14"/>',
+    bell:      '<path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+    sun:       '<circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    moon:      '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.7 6.7 0 0 0 10.5 10.5z"/>',
+    auto:      '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor" stroke="none"/>',
+    clock:     '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 1.9"/>',
+    flame:     '<path d="M12 22c3.9 0 6.5-2.5 6.5-6 0-4.4-4.3-6-5.2-10.6-2 1.3-3.1 3.2-3.1 5.1 0 1.3.5 2.2.5 2.9 0 1-.8 1.7-1.6 1.7-1 0-1.7-.9-1.8-2.3C6.2 14.3 5.5 16 5.5 18c0 2.4 2.6 4 6.5 4z"/>',
+    droplet:   '<path d="M12 2.8s6 6.4 6 10.6a6 6 0 0 1-12 0C6 9.2 12 2.8 12 2.8z"/>',
+    bean:      '<ellipse cx="12" cy="12" rx="5.4" ry="8.2" transform="rotate(-32 12 12)"/><path d="M9.4 5.6c2.4 3 2.4 9.8 0 12.8"/>',
+    bowl:      '<path d="M3.2 10.5h17.6a8.8 8.8 0 0 1-8.8 8.4 8.8 8.8 0 0 1-8.8-8.4z"/><path d="M8.6 7.2c0-1.4 1.4-1.9 1.4-3.2M13 7.2c0-1.4 1.4-1.9 1.4-3.2"/>',
+    capsule:   '<rect x="2.6" y="8.6" width="18.8" height="6.8" rx="3.4" transform="rotate(-38 12 12)"/><path d="M8.9 15.1l6.2-6.2"/>',
+    dumbbell:  '<path d="M4 9v6M7 7.4v9.2M17 7.4v9.2M20 9v6M7 12h10"/>',
+    reset:     '<path d="M3.6 12a8.4 8.4 0 1 0 2.6-6.1"/><path d="M3.2 4.4v4.4h4.4"/>',
+    trash:     '<path d="M4 6.6h16M9.4 6.6V4.4h5.2v2.2M6.4 6.6l1 13.2h9.2l1-13.2"/>',
+    close:     '<path d="M6.4 6.4l11.2 11.2M17.6 6.4L6.4 17.6"/>',
+    check:     '<path d="M4.8 12.6l4.9 4.8L19.2 7"/>',
+    book:      '<path d="M4.4 4.2h9.8a3.4 3.4 0 0 1 3.4 3.4v12.2H7.8a3.4 3.4 0 0 1-3.4-3.4z"/><path d="M17.6 19.8h2"/>',
+    cart:      '<path d="M2.6 3.6h2.8l2.6 11.4h9.6l2.2-8.2H6.4"/><circle cx="9.6" cy="19.4" r="1.5"/><circle cx="17.4" cy="19.4" r="1.5"/>',
+    play:      '<circle cx="12" cy="12" r="8.6"/><path d="M10.2 8.6l6 3.4-6 3.4z" fill="currentColor" stroke="none"/>',
+    done:      '<circle cx="12" cy="12" r="8.6"/><path d="M8.2 12.3l2.7 2.7 5-5.4"/>',
+    film:      '<rect x="3" y="4.6" width="18" height="14.8" rx="2.4"/><path d="M8 4.6v14.8M16 4.6v14.8M3 12h18"/>',
+    note:      '<path d="M5 3.8h9.4L19 8.4v11.8H5z"/><path d="M14.2 3.8v4.8H19"/><path d="M8.4 13h7M8.4 16.4h4.6"/>',
+    layers:    '<path d="M12 3.2l8.6 4.6L12 12.4 3.4 7.8z"/><path d="M3.4 12.4L12 17l8.6-4.6"/>',
+    spark:     '<path d="M12 3.2l1.9 5.6 5.6 1.9-5.6 1.9L12 18.2l-1.9-5.6-5.6-1.9 5.6-1.9z"/>'
+  };
+  function ico(name, size, extra) {
+    var d = ICON_PATHS[name];
+    if (!d) return "";
+    var sz = size || 16;
+    return '<svg class="ico' + (extra ? " " + extra : "") + '" width="' + sz + '" height="' + sz +
+      '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  }
+
+  function vesselGrad(gid) {
+    return '<defs>' +
+      '<linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0%" stop-color="#FFCA4A"/><stop offset="100%" stop-color="#FBB102"/>' +
+      '</linearGradient>' +
+      '<linearGradient id="' + gid + 'g" x1="0" y1="0" x2="1" y2="0">' +
+        '<stop offset="0%" stop-color="rgba(255,255,255,0.42)"/><stop offset="55%" stop-color="rgba(255,255,255,0)"/>' +
+      '</linearGradient>' +
+    '</defs>';
+  }
   function iconBottleSmall(idSuffix) {
-    var gid = "waterGradS" + idSuffix;
-    return '<svg width="38" height="60" viewBox="0 0 60 96" fill="none">' +
-      '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="1" y2="1">' +
-        '<stop offset="0%" stop-color="#67E8F9"/><stop offset="100%" stop-color="#3B82F6"/>' +
-      '</linearGradient></defs>' +
-      '<rect x="22" y="2" width="16" height="10" rx="3" fill="#CBD5E1"/>' +
-      '<rect x="24" y="10" width="12" height="10" fill="url(#' + gid + ')"/>' +
-      '<rect x="10" y="20" width="40" height="74" rx="14" fill="url(#' + gid + ')"/>' +
-      '<rect x="10" y="52" width="40" height="16" fill="rgba(15,17,23,0.18)"/>' +
-      '<rect x="17" y="30" width="6" height="50" rx="3" fill="rgba(255,255,255,0.35)"/>' +
-      '</svg>';
+    var g = "vsS" + idSuffix;
+    return '<svg width="30" height="52" viewBox="0 0 44 76" fill="none" class="vessel">' + vesselGrad(g) +
+      '<rect x="16" y="1.6" width="12" height="8" rx="2.4" stroke="currentColor" stroke-width="2" opacity=".5"/>' +
+      '<path d="M17 9.6h10v6.6l4 5.2v46a5 5 0 0 1-5 5H18a5 5 0 0 1-5-5v-46l4-5.2z" stroke="currentColor" stroke-width="2" opacity=".45"/>' +
+      '<path d="M14 38h16v29a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4z" fill="url(#' + g + ')"/>' +
+      '<path d="M16 24v42" stroke="url(#' + g + 'g)" stroke-width="3" stroke-linecap="round"/>' +
+    '</svg>';
   }
   function iconBottleBig(idSuffix) {
-    var gid = "waterGradB" + idSuffix;
-    return '<svg width="48" height="68" viewBox="0 0 76 104" fill="none">' +
-      '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="1" y2="1">' +
-        '<stop offset="0%" stop-color="#FFCA4A"/><stop offset="100%" stop-color="#FBB102"/>' +
-      '</linearGradient></defs>' +
-      '<rect x="28" y="2" width="20" height="10" rx="3" fill="#CBD5E1"/>' +
-      '<rect x="30" y="10" width="16" height="12" fill="url(#' + gid + ')"/>' +
-      '<path d="M14 26 Q14 22 20 22 L56 22 Q62 22 62 26 L66 92 Q66 102 56 102 L20 102 Q10 102 10 92 Z" fill="url(#' + gid + ')"/>' +
-      '<rect x="10" y="58" width="56" height="18" fill="rgba(15,17,23,0.18)"/>' +
-      '<rect x="20" y="34" width="7" height="56" rx="3.5" fill="rgba(255,255,255,0.32)"/>' +
-      '</svg>';
+    var g = "vsB" + idSuffix;
+    return '<svg width="38" height="56" viewBox="0 0 56 82" fill="none" class="vessel">' + vesselGrad(g) +
+      '<rect x="21" y="1.6" width="14" height="8.4" rx="2.6" stroke="currentColor" stroke-width="2" opacity=".5"/>' +
+      '<path d="M22 10h12v6l6 6.4v49a6 6 0 0 1-6 6H22a6 6 0 0 1-6-6v-49l6-6.4z" stroke="currentColor" stroke-width="2" opacity=".45"/>' +
+      '<path d="M17 30h22v41a5 5 0 0 1-5 5H22a5 5 0 0 1-5-5z" fill="url(#' + g + ')"/>' +
+      '<path d="M20.5 34v38" stroke="url(#' + g + 'g)" stroke-width="3.4" stroke-linecap="round"/>' +
+      '<path d="M17 48h22" stroke="rgba(0,0,0,0.16)" stroke-width="4"/>' +
+    '</svg>';
   }
   function iconCoffeeCup(idSuffix) {
-    var gid = "coffeeGrad" + idSuffix;
-    return '<svg width="52" height="52" viewBox="0 0 100 96" fill="none">' +
-      '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
-        '<stop offset="0%" stop-color="#D8A868"/><stop offset="100%" stop-color="#8B5E34"/>' +
-      '</linearGradient></defs>' +
-      '<path d="M18 26 L82 26 L74 84 Q73 92 62 92 L38 92 Q27 92 26 84 Z" fill="url(#' + gid + ')"/>' +
-      '<path d="M80 34 Q102 36 98 54 Q94 72 76 68" stroke="url(#' + gid + ')" stroke-width="8" fill="none" stroke-linecap="round"/>' +
-      '<ellipse cx="50" cy="27" rx="30" ry="7" fill="#5C3A22"/>' +
-      '<path d="M40 16 Q34 8 40 -2" stroke="rgba(255,255,255,0.4)" stroke-width="3" fill="none" stroke-linecap="round"/>' +
-      '<path d="M56 16 Q50 8 56 -2" stroke="rgba(255,255,255,0.4)" stroke-width="3" fill="none" stroke-linecap="round"/>' +
-      '</svg>';
+    var g = "vsC" + idSuffix;
+    return '<svg width="40" height="46" viewBox="0 0 60 66" fill="none" class="vessel">' + vesselGrad(g) +
+      '<path d="M31 5c-3 3.4-3 6 0 9.4M22 6.2c-2.2 2.6-2.2 4.6 0 7.2" stroke="currentColor" stroke-width="2" opacity=".4" stroke-linecap="round"/>' +
+      '<path d="M8 21h34v24a13 13 0 0 1-13 13h-8A13 13 0 0 1 8 45z" stroke="currentColor" stroke-width="2" opacity=".45"/>' +
+      '<path d="M11 30h28v15a10 10 0 0 1-10 10h-8a10 10 0 0 1-10-10z" fill="url(#' + g + ')"/>' +
+      '<path d="M42 26h4a8 8 0 0 1 0 16h-4" stroke="currentColor" stroke-width="2" opacity=".45"/>' +
+      '<ellipse cx="25" cy="21" rx="17" ry="3.4" stroke="currentColor" stroke-width="2" opacity=".45"/>' +
+    '</svg>';
   }
 
   var root = document.getElementById("app");
@@ -660,23 +828,32 @@
 
     var html = '<div class="wrap">';
 
-    var themeIcon = state.themeMode === "auto" ? "🌓" : (state.themeMode === "light" ? "☀️" : "🌙");
+    var themeIcon = state.themeMode === "auto" ? ico("auto", 16) : (state.themeMode === "light" ? ico("sun", 16) : ico("moon", 16));
     html += '<div class="header k-r" style="animation-delay:.02s">' +
       '<div class="brand"><div class="brand-bar"></div><div class="brand-name">MindORG</div></div>' +
       '<div class="stats mono">' +
         '<button class="theme-btn" data-action="cycle-theme" title="Theme: ' + state.themeMode + '">' + themeIcon + '</button>' +
-        '<span class="stat-pill">' + openCount + ' open</span>' +
-        '<button class="bell' + (state.notifEnabled ? ' on' : '') + '" data-action="toggle-notif">🔔 ' + dueSoonAll.length + '</button>' +
+        '<button class="bell' + (state.notifEnabled ? ' on' : '') + '" data-action="toggle-notif">' + ico("bell", 15) + (dueSoonAll.length ? '<span>' + dueSoonAll.length + '</span>' : '') + '</button>' +
       '</div></div>';
 
     if (state.filter === "all") { html += renderHero(dueSoonAll); }
 
     var previewCat = state.inputValue.trim() ? CAT_BY_ID[categorize(state.inputValue)] : null;
-    html += '<div class="quickadd-wrap k-r" style="animation-delay:.16s"><div class="quickadd">' +
-      '<span class="qa-plus">＋</span>' +
-      '<input id="quick-input" type="text" placeholder="Type a task and press enter…" value="' + escapeHtml(state.inputValue) + '" />' +
-      (previewCat ? '<span class="live-tag" style="background:' + previewCat.color + '25;color:' + previewCat.color + '">' + previewCat.short + '</span>' : '') +
-      '</div><p class="hint">sorts itself as you type — tap a tag on any task to move it</p></div>';
+    html += '<div class="quickadd-wrap k-r" style="animation-delay:.16s">';
+    if (!state.composerOpen) {
+      html += '<button class="qa-trigger" data-action="open-composer">' +
+          '<span class="qa-orb">' + ico("plus", 19) + '</span>' +
+          '<span class="qa-trigger-text">Capture a thought</span>' +
+        '</button>';
+    } else {
+      html += '<div class="quickadd qa-expand">' +
+        '<span class="qa-plus">' + ico("plus", 16) + '</span>' +
+        '<input id="quick-input" type="text" placeholder="Type it, it sorts itself…" value="' + escapeHtml(state.inputValue) + '" />' +
+        (previewCat ? '<span class="live-tag" style="background:' + previewCat.color + '25;color:' + previewCat.color + '">' + previewCat.short + '</span>' : '') +
+        '<button class="qa-close" data-action="close-composer">' + ico("close", 15) + '</button>' +
+        '</div><p class="hint qa-expand-hint">press enter to file it — tap a tag later to move it</p>';
+    }
+    html += '</div>';
 
     html += '<div class="chips k-r" style="animation-delay:.24s">';
     html += '<button class="chip" data-action="set-filter" data-id="all" style="' + (state.filter === "all" ? "background:var(--accent);color:var(--on-accent);border-color:transparent;" : "") + '">All <span class="mono">' + tasks.length + '</span></button>';
@@ -688,7 +865,7 @@
     html += '</div>';
 
     if (dueSoon.length > 0) {
-      html += '<div class="card k-r" style="animation-delay:.32s"><div class="eyebrow">⏱ Due &amp; overdue</div><div class="tile-grid">';
+      html += '<div class="card k-r" style="animation-delay:.32s"><div class="eyebrow">' + ico("clock", 13) + ' Due &amp; overdue</div><div class="tile-grid">';
       dueSoon.forEach(function (t) { html += renderTaskTile(t); });
       html += '</div></div>';
     }
@@ -755,7 +932,7 @@
         : '<p class="tile-text note-tap" data-action="edit-note" data-id="' + t.id + '" style="-webkit-line-clamp:6;">' + escapeHtml(t.text) + '</p>';
       return '<div class="tile note-tile" style="background:linear-gradient(160deg,' + cat.color + '14,' + cat.color + '05);">' +
         '<div class="tile-top"><span class="tile-cat-label mono" style="color:' + cat.color + '">NOTE</span>' +
-        '<button class="tile-del" data-action="delete-task" data-id="' + t.id + '">✕</button></div>' +
+        '<button class="tile-del" data-action="delete-task" data-id="' + t.id + '">' + ico("close", 13) + '</button></div>' +
         body +
         '<span class="tile-note-meta mono">' + new Date(t.createdAt).toLocaleDateString([], { month: "short", day: "numeric" }) + '</span>' +
       '</div>';
@@ -787,7 +964,7 @@
     }
 
     return '<div class="tile">' +
-      '<div class="tile-top">' + catEl + '<button class="tile-del" data-action="delete-task" data-id="' + t.id + '">✕</button></div>' +
+      '<div class="tile-top">' + catEl + '<button class="tile-del" data-action="delete-task" data-id="' + t.id + '">' + ico("close", 13) + '</button></div>' +
       '<p class="tile-text' + (t.done ? " done" : "") + '">' + escapeHtml(t.text) + '</p>' +
       '<div class="tile-footer">' +
         '<button class="check' + (t.done ? " done" : "") + (justDone ? " just-completed" : "") + '" data-action="toggle-done" data-id="' + t.id + '">' + (t.done ? "✓" : "") + '</button>' +
@@ -820,7 +997,7 @@
       var shortLabel = meta.overdue ? "Overdue · " + meta.label.split(" · ")[1] : meta.label;
       dueHtml = '<span style="display:inline-flex;align-items:center;gap:4px;">' +
         '<button class="tag" data-action="start-edit-due" data-id="' + t.id + '" style="background:' + color + '25;color:' + color + '">⏱ ' + shortLabel + '</button>' +
-        '<button class="tile-del" data-action="clear-due" data-id="' + t.id + '">✕</button></span>';
+        '<button class="tile-del" data-action="clear-due" data-id="' + t.id + '">' + ico("close", 13) + '</button></span>';
     } else {
       dueHtml = '<button class="tag tag-ghost" data-action="start-edit-due" data-id="' + t.id + '" style="color:var(--dim);border:1px dashed var(--hairline-strong);background:none;">+ remind</button>';
     }
@@ -831,7 +1008,7 @@
         '<p class="row-text' + (t.done ? " done" : "") + '">' + escapeHtml(t.text) + '</p>' +
         '<div class="tag-row">' + catEl + dueHtml + '</div>' +
       '</div>' +
-      '<button class="tile-del" data-action="delete-task" data-id="' + t.id + '">✕</button>' +
+      '<button class="tile-del" data-action="delete-task" data-id="' + t.id + '">' + ico("close", 13) + '</button>' +
     '</div>';
   }
 
@@ -883,7 +1060,7 @@
         (type === "book" ? '<input id="lib-author" type="text" class="due-input" style="width:100%;margin-bottom:8px;box-sizing:border-box;" placeholder="Author (optional)" />' : "") +
         (type === "book" ? '<input id="lib-pages" type="number" class="due-input" style="width:100%;margin-bottom:8px;box-sizing:border-box;" placeholder="Total pages" />' : "") +
         '<select id="lib-status" class="due-input" style="width:100%;margin-bottom:10px;box-sizing:border-box;">' +
-          statuses.map(function (s) { return '<option value="' + s.id + '">' + s.icon + " " + s.label + "</option>"; }).join("") +
+          statuses.map(function (s) { return '<option value="' + s.id + '">' + s.label + "</option>"; }).join("") +
         '</select>' +
         '<button id="lib-add-btn" data-lib-type="' + type + '" class="chip" style="background:#34D399;color:#0B0D12;border-color:transparent;">Add</button>' +
       '</div>';
@@ -892,7 +1069,7 @@
 
     statuses.forEach(function (s, idx) {
       var sectionItems = items.filter(function (i) { return i.status === s.id; });
-      html += '<div class="card k-r" style="animation-delay:.' + (14 + idx * 8) + 's"><div class="eyebrow">' + s.icon + " " + s.label + ' <span class="mono" style="margin-left:4px;">' + sectionItems.length + "</span></div>";
+      html += '<div class="card k-r" style="animation-delay:.' + (14 + idx * 8) + 's"><div class="eyebrow">' + ico(s.iconName, 13) + " " + s.label + ' <span class="mono" style="margin-left:4px;">' + sectionItems.length + "</span></div>";
       if (sectionItems.length === 0) {
         html += '<p class="empty" style="padding:8px 0;">Nothing here yet.</p>';
       } else {
@@ -934,7 +1111,7 @@
             statuses.map(function (s) { return '<option value="' + s.id + '"' + (s.id === item.status ? " selected" : "") + ">" + s.icon + " " + s.label + "</option>"; }).join("") +
           "</select>" +
         "</div>" +
-        '<button class="tile-del" data-action="close-library-item">✕</button>' +
+        '<button class="tile-del" data-action="close-library-item">' + ico("close", 13) + '</button>' +
       "</div>";
 
     if (item.type === "book") {
@@ -961,14 +1138,14 @@
         (item.photoIds || []).map(function (pid) {
           return '<div style="position:relative;flex-shrink:0;">' +
             '<img data-photo-id="' + pid + '" style="width:64px;height:64px;object-fit:cover;border-radius:10px;background:var(--tile-empty);display:block;" />' +
-            '<button class="tile-del" data-action="delete-photo" data-id="' + item.id + '" data-photo="' + pid + '" style="position:absolute;top:-6px;right:-6px;background:var(--bg);border-radius:50%;">✕</button>' +
+            '<button class="tile-del" data-action="delete-photo" data-id="' + item.id + '" data-photo="' + pid + '" style="position:absolute;top:-6px;right:-6px;background:var(--bg);border-radius:50%;">' + ico("close", 13) + '</button>' +
           "</div>";
         }).join("") +
         '<label class="lib-photo-add" for="lib-photo-input">＋<input type="file" accept="image/*" id="lib-photo-input" data-role="lib-photo-file" data-id="' + item.id + '" style="display:none;" /></label>' +
       "</div>" +
     "</div>";
 
-    html += '<button class="tile-del" data-action="delete-library-item" data-id="' + item.id + '" style="margin-top:14px;color:#F87171;">🗑 Delete</button>';
+    html += '<button class="tile-del" data-action="delete-library-item" data-id="' + item.id + '" style="margin-top:14px;color:#F87171;"> Delete</button>';
     html += "</div>";
     return html;
   }
@@ -1002,17 +1179,17 @@
   function renderHealthRows(dateKey) {
     var log = getHealthLog(dateKey);
     var rows = [
-      { key: "eat", label: "Ate healthy", icon: "🍎" },
-      { key: "supplements", label: "Supplements", icon: "💊" },
-      { key: "gym", label: "Gym", icon: "🏋️" }
+      { key: "eat", label: "Ate well", iconName: "bowl" },
+      { key: "supplements", label: "Supps", iconName: "capsule" },
+      { key: "gym", label: "Gym", iconName: "dumbbell" }
     ];
-    var html = "";
+    var html = '<div class="habit-row">';
     rows.forEach(function (r) {
       var active = log[r.key];
-      html += '<div class="health-row"><span class="health-label">' + r.icon + ' ' + r.label + '</span>' +
-        '<button class="check' + (active ? " done" : "") + '" data-action="health-toggle" data-date="' + dateKey + '" data-field="' + r.key + '">' + (active ? "✓" : "") + '</button></div>';
+      html += '<button class="habit' + (active ? " on" : "") + '" data-action="health-toggle" data-date="' + dateKey + '" data-field="' + r.key + '">' +
+        ico(r.iconName, 17) + '<span>' + r.label + '</span></button>';
     });
-    return html;
+    return html + '</div>';
   }
 
   function renderHydrationCard(dateKey, idSuffix) {
@@ -1020,67 +1197,139 @@
     var waterMl = log.waterMl || 0;
     var caffeineMl = log.caffeineMl || 0;
     var pct = Math.min(waterMl / WATER_GOAL_ML, 1);
-    var r = 52, circ = 2 * Math.PI * r;
-    var dash = circ * pct;
+    var r = 40, circ = 2 * Math.PI * r;
     var liters = (waterMl / 1000).toFixed(1);
     var goalLiters = (WATER_GOAL_ML / 1000).toFixed(0);
     var mg = Math.round(caffeineMl * CAFFEINE_MG_PER_ML);
+    var streak = currentStreak(fmtKey(new Date()));
 
-    var html = '<div class="card">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">' +
-      '<div class="eyebrow" style="margin-bottom:0;">💧 Hydration</div>' +
-      '<button class="tile-del" data-action="reset-hydration" data-date="' + dateKey + '" title="Reset">↺</button></div>';
+    var html = '<div class="card vitals-card">';
 
-    html += '<div style="display:flex;justify-content:center;position:relative;margin:8px 0 16px;">' +
-      '<svg width="140" height="140" viewBox="0 0 120 120">' +
-        '<defs><linearGradient id="ringGrad' + idSuffix + '" x1="0%" y1="0%" x2="100%" y2="100%">' +
-          '<stop offset="0%" stop-color="#FFCA4A"/><stop offset="100%" stop-color="#FBB102"/></linearGradient></defs>' +
-        '<circle cx="60" cy="60" r="' + r + '" stroke="var(--ring-track)" stroke-width="10" fill="none"/>' +
-        '<circle cx="60" cy="60" r="' + r + '" stroke="url(#ringGrad' + idSuffix + ')" stroke-width="10" fill="none" ' +
-          'stroke-linecap="round" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + (circ - dash).toFixed(1) + '" transform="rotate(-90 60 60)"/>' +
-      '</svg>' +
-      '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">' +
-        '<div style="font-size:23px;font-weight:800;">' + liters + 'L</div>' +
-        '<div class="mono" style="font-size:10px;color:var(--muted);">of ' + goalLiters + 'L</div>' +
-      '</div></div>';
+    // compact head: ring + streak side by side
+    html += '<div class="vitals-head">';
+    html +=   '<div class="ring-wrap">' +
+                '<svg width="98" height="98" viewBox="0 0 96 96">' +
+                  '<defs><linearGradient id="rg' + idSuffix + '" x1="0%" y1="0%" x2="100%" y2="100%">' +
+                    '<stop offset="0%" stop-color="#FFCA4A"/><stop offset="100%" stop-color="#FBB102"/></linearGradient></defs>' +
+                  '<circle cx="48" cy="48" r="' + r + '" stroke="var(--ring-track)" stroke-width="8" fill="none"/>' +
+                  '<circle class="ring-arc" cx="48" cy="48" r="' + r + '" stroke="url(#rg' + idSuffix + ')" stroke-width="8" fill="none" ' +
+                    'stroke-linecap="round" stroke-dasharray="' + circ.toFixed(1) + '" ' +
+                    'style="--arc-to:' + (circ - circ * pct).toFixed(1) + ';--arc-full:' + circ.toFixed(1) + '" ' +
+                    'transform="rotate(-90 48 48)"/>' +
+                '</svg>' +
+                '<div class="ring-mid"><b class="display">' + liters + '</b><s class="mono">of ' + goalLiters + 'L</s></div>' +
+              '</div>';
+    html +=   '<div class="vitals-side">' +
+                '<div class="vs-line"><span class="vs-ico">' + ico("flame", 15) + '</span>' +
+                  '<b class="display">' + streak + '</b><s class="mono">day streak</s></div>' +
+                '<div class="vs-line"><span class="vs-ico">' + ico("bean", 15) + '</span>' +
+                  '<b class="display">' + mg + '</b><s class="mono">mg caffeine</s></div>' +
+                '<button class="vs-reset" data-action="reset-hydration" data-date="' + dateKey + '" title="Reset today">' + ico("reset", 13) + '</button>' +
+              '</div>';
+    html += '</div>';
 
+    // vessels
     html += '<div class="cutout-row">' +
       '<button class="cutout-btn" data-action="add-water" data-date="' + dateKey + '" data-amount="600">' + iconBottleSmall(idSuffix) + '<span class="cutout-label">Small</span><span class="cutout-sub mono">600ml</span></button>' +
       '<button class="cutout-btn" data-action="add-water" data-date="' + dateKey + '" data-amount="1500">' + iconBottleBig(idSuffix) + '<span class="cutout-label">Big</span><span class="cutout-sub mono">1.5L</span></button>' +
       '<button class="cutout-btn" data-action="add-coffee" data-date="' + dateKey + '" data-amount="240">' + iconCoffeeCup(idSuffix) + '<span class="cutout-label">Americano</span><span class="cutout-sub mono">240ml</span></button>' +
     '</div>';
 
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--hairline);">' +
-      '<span style="font-size:12px;color:var(--muted);">☕ Caffeine today</span>' +
-      '<span class="mono" style="font-size:13px;font-weight:700;">' + caffeineMl + 'ml <span style="color:var(--dim);font-weight:400;">(~' + mg + 'mg)</span></span>' +
-    '</div>';
-
+    html += renderHealthRows(dateKey);
     html += '</div>';
     return html;
   }
 
+  // ---- WIDGET: where the open work actually sits ----
+  function renderFocusSplit() {
+    var open = tasks.filter(function (t) { return !t.done && t.categoryId !== "notes"; });
+    if (open.length === 0) {
+      return '<div class="card k-r" style="animation-delay:.5s"><div class="eyebrow">' + ico("layers", 13) + ' Focus split</div>' +
+        '<p class="empty" style="padding:10px 0;">Nothing open. Enjoy it.</p></div>';
+    }
+    var counts = {};
+    open.forEach(function (t) { counts[t.categoryId] = (counts[t.categoryId] || 0) + 1; });
+    var ordered = CATEGORIES.filter(function (c) { return counts[c.id]; })
+      .sort(function (a, b) { return counts[b.id] - counts[a.id]; });
+
+    var bar = '<div class="split-bar">';
+    ordered.forEach(function (c, i) {
+      var w = (counts[c.id] / open.length) * 100;
+      bar += '<i style="width:' + w.toFixed(1) + '%;background:' + c.color + ';animation-delay:' + (0.55 + i * 0.07) + 's"></i>';
+    });
+    bar += '</div>';
+
+    var legend = '<div class="split-legend">';
+    ordered.forEach(function (c) {
+      legend += '<span class="sl"><i style="background:' + c.color + '"></i>' + c.short +
+        ' <b class="mono">' + counts[c.id] + '</b></span>';
+    });
+    legend += '</div>';
+
+    var top = ordered[0];
+    return '<div class="card k-r" style="animation-delay:.5s">' +
+      '<div class="eyebrow">' + ico("layers", 13) + ' Focus split</div>' +
+      '<div class="split-lead"><b class="display">' + Math.round((counts[top.id] / open.length) * 100) + '%</b>' +
+        '<span>of your open work is <b style="color:' + top.color + '">' + top.short + '</b></span></div>' +
+      bar + legend + '</div>';
+  }
+
+  // ---- WIDGET: 7-day completion momentum ----
+  function renderMomentum() {
+    var days = [], labels = [], d0 = new Date();
+    for (var i = 6; i >= 0; i--) {
+      var d = new Date(d0); d.setDate(d0.getDate() - i);
+      days.push(fmtKey(d));
+      labels.push(["S","M","T","W","T","F","S"][d.getDay()]);
+    }
+    var counts = days.map(function (key) {
+      return tasks.filter(function (t) {
+        return t.done && t.completedAt && fmtKey(new Date(t.completedAt)) === key;
+      }).length;
+    });
+    var total = counts.reduce(function (a, b) { return a + b; }, 0);
+    var max = Math.max.apply(null, counts.concat([1]));
+
+    var bars = '<div class="mo-bars">';
+    counts.forEach(function (n, i) {
+      var h = n === 0 ? 6 : Math.max(14, (n / max) * 100);
+      bars += '<div class="mo-col">' +
+        '<i class="' + (n === 0 ? "zero" : "") + '" style="height:' + h + '%;animation-delay:' + (0.62 + i * 0.05) + 's">' +
+          (n > 0 ? '<b class="mono">' + n + '</b>' : '') +
+        '</i>' +
+        '<s class="mono' + (i === 6 ? " now" : "") + '">' + labels[i] + '</s></div>';
+    });
+    bars += '</div>';
+
+    var note = total === 0
+      ? 'Finishing tasks builds this chart — nothing logged in the last 7 days yet.'
+      : total + ' finished this week';
+
+    return '<div class="card k-r" style="animation-delay:.58s">' +
+      '<div class="eyebrow">' + ico("spark", 13) + ' Momentum</div>' +
+      bars + '<p class="mo-note">' + note + '</p></div>';
+  }
+
   function renderHealthEssentials(todayKey, idSuffix) {
-    var streak = currentStreak(todayKey);
-    var days = [];
-    var d0 = new Date();
+    var days = [], d0 = new Date();
     for (var i = 20; i >= 0; i--) {
       var day = new Date(d0); day.setDate(d0.getDate() - i);
       days.push(fmtKey(day));
     }
-    var html = '<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
-      '<span style="font-size:18px;">🔥</span>' +
-      '<span style="font-size:14px;font-weight:700;">' + (streak > 0 ? streak + " day streak" : "Log today to start a streak") + '</span>' +
-      '</div><div class="streak-row">';
-    days.forEach(function (key) {
-      var score = scoreOf(healthLogs[key]);
-      var color = statusHex(score);
-      var isToday = key === todayKey;
-      html += '<div class="streak-bar" style="background:' + (color || "var(--tile-empty)") + ';' + (isToday ? "border:2px solid var(--text);box-shadow:0 0 10px var(--accent-glow);" : "") + '" title="' + key + '"></div>';
-    });
-    html += '</div></div>';
+    var html = renderHydrationCard(todayKey, idSuffix);
 
-    html += renderHydrationCard(todayKey, idSuffix);
-    html += '<div class="card"><div class="eyebrow">Today</div>' + renderHealthRows(todayKey) + '</div>';
+    // slim streak strip, no longer its own fat card
+    html += '<div class="streak-strip k-r" style="animation-delay:.44s">';
+    days.forEach(function (key) {
+      var color = statusHex(scoreOf(healthLogs[key]));
+      var isToday = key === todayKey;
+      html += '<i style="background:' + (color || "var(--tile-empty)") + ';' +
+        (isToday ? "box-shadow:0 0 0 2px var(--text), 0 0 12px var(--accent-glow);" : "") + '" title="' + key + '"></i>';
+    });
+    html += '</div>';
+
+    html += renderFocusSplit();
+    html += renderMomentum();
     return html;
   }
 
@@ -1118,7 +1367,7 @@
       html += '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline-strong);">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
         '<span class="mono" style="font-size:12px;color:var(--muted);">' + label + '</span>' +
-        '<button class="tile-del" data-action="close-health-edit">✕</button></div>';
+        '<button class="tile-del" data-action="close-health-edit">' + ico("close", 13) + '</button></div>';
       html += renderHydrationCard(state.editingHealthDate, "caledit");
       html += '<div style="margin-top:12px;">' + renderHealthRows(state.editingHealthDate) + '</div>';
       html += '</div>';
@@ -1137,7 +1386,11 @@
     else if (action === "toggle-done") {
       var target = tasks.filter(function (x) { return x.id === id; })[0];
       var wasDone = target ? target.done : false;
-      tasks = tasks.map(function (t) { return t.id === id ? Object.assign({}, t, { done: !t.done }) : t; });
+      tasks = tasks.map(function (t) {
+        if (t.id !== id) return t;
+        var nowDone = !t.done;
+        return Object.assign({}, t, { done: nowDone, completedAt: nowDone ? Date.now() : null });
+      });
       persistTasks();
       if (!wasDone) {
         state.justCompletedId = id;
@@ -1158,6 +1411,8 @@
       tasks = tasks.map(function (t) { return t.id === id ? Object.assign({}, t, { dueDate: null }) : t; });
       persistTasks(); render();
     }
+    else if (action === "open-composer") { state.composerOpen = true; render(); }
+    else if (action === "close-composer") { state.composerOpen = false; state.inputValue = ""; render(); }
     else if (action === "toggle-notif") { toggleNotif(); }
     else if (action === "cycle-theme") { cycleTheme(); }
     else if (action === "edit-note") { state.editingNoteId = id; render(); }
@@ -1278,6 +1533,10 @@
   function attachInputHandlers() {
     var input = document.getElementById("quick-input");
     if (input) {
+      if (state.composerOpen && document.activeElement !== input) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
       input.addEventListener("input", function (e) {
         state.inputValue = e.target.value;
         render();
@@ -1285,6 +1544,7 @@
         if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
       });
       input.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") { state.composerOpen = false; state.inputValue = ""; render(); return; }
         if (e.key === "Enter") {
           var text = state.inputValue.trim();
           if (!text) return;
