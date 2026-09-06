@@ -33,6 +33,9 @@ module.exports = async (req, res) => {
     if (body.fixturePrefs) {
       await redisCmd(["SET", "flow:fxprefs", JSON.stringify(body.fixturePrefs)]);
     }
+    if (body.routines) {
+      await redisCmd(["SET", "flow:routines", JSON.stringify(body.routines)]);
+    }
     res.status(200).json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });

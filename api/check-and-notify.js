@@ -52,6 +52,32 @@ function reminderTriggers(fx) {
   ];
 }
 
+
+function cairoDateKey(y, m, d) {
+  return y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+}
+
+// Daily recurring reminders (feeding times, grooming, etc). Unlike fixtures,
+// these repeat every day at a fixed Cairo wall-clock time rather than firing
+// once relative to a single dated event.
+function routineTriggers(routine, now) {
+  if (routine.enabled === false) return [];
+  const day = cairoParts(new Date(now));
+  const dateKey = cairoDateKey(day.y, day.m, day.d);
+
+  return (routine.times || []).map(function (t) {
+    const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(t);
+    if (!m) return null;
+    const hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+    return {
+      suffix: t + ":" + dateKey,
+      at: cairoWallToUTC(day.y, day.m, day.d, hh, mm),
+      title: routine.label,
+      body: (CATEGORY_LABEL[routine.categoryId] || "REMINDER") + "  ·  " + t,
+    };
+  }).filter(Boolean);
+}
+
 // mirrors CATEGORIES in index.html — used to label the notification
 const CATEGORY_LABEL = {
   work: "WORK",
@@ -61,6 +87,7 @@ const CATEGORY_LABEL = {
   movies: "MOVIES",
   series: "SERIES",
   health: "HEALTH",
+  dog: "ENZO",
   notes: "NOTES",
   inbox: "INBOX",
 };
@@ -151,6 +178,32 @@ module.exports = async (req, res) => {
       }
     }
 
+    // ---- daily routines (Feed Enzo, wipe eyes, etc) ----
+    let routineSent = 0;
+    try {
+      const rRaw = await redisCmd(["GET", "flow:routines"]);
+      const routines = rRaw ? JSON.parse(rRaw) : [];
+      for (const routine of routines) {
+        for (const trig of routineTriggers(routine, now)) {
+          const key = "routine:" + routine.id + ":" + trig.suffix;
+          if (notified[key]) continue;
+          if (trig.at > now) continue;               // not due yet today
+          if (now - trig.at > 30 * 60 * 1000) {       // missed by >30min: skip silently
+            notified[key] = true;
+            continue;
+          }
+          try {
+            await webpush.sendNotification(
+              subscription,
+              JSON.stringify({ title: trig.title, body: trig.body, tag: key })
+            );
+            routineSent++;
+          } catch (e) {}
+          notified[key] = true;
+        }
+      }
+    } catch (e) {}
+
     // ---- fixtures ----
     let fixtureSent = 0;
     try {
@@ -212,7 +265,7 @@ module.exports = async (req, res) => {
     } catch (e) {}
 
     await redisCmd(["SET", "flow:notified", JSON.stringify(notified)]);
-    res.status(200).json({ ok: true, sent, fixtureSent });
+    res.status(200).json({ ok: true, sent, fixtureSent, routineSent });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

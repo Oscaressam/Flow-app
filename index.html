@@ -580,6 +580,20 @@
   .fr-team, .inj-name { font-size:12px; flex:1; min-width:0; }
   .inj-name i { font-style:normal; font-size:9px; color:var(--dim); }
   .fr-val, .inj-status { font-size:10px; color:var(--muted); flex-shrink:0; }
+
+  /* ---------- routines ---------- */
+  .routine-row { display:flex; align-items:center; justify-content:space-between;
+    padding:11px 0; border-bottom:1px solid var(--hairline); }
+  .routine-row:last-child { border-bottom:none; }
+  .routine-label { font-size:14px; font-weight:600; letter-spacing:-.01em; }
+  .routine-times { font-size:9.5px; letter-spacing:.1em; color:var(--dim); margin-top:4px; }
+  .routine-toggle {
+    width:32px; height:32px; border-radius:10px; flex-shrink:0; line-height:0;
+    background:var(--surface-1); border:1px solid var(--hairline-strong); color:var(--dim);
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:background .18s, color .18s, border-color .18s;
+  }
+  .routine-toggle.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
 </style>
 </head>
 <body>
@@ -601,6 +615,18 @@
   var API_BASE = "https://flow-app-snowy.vercel.app";
   var STORAGE_FIXTURES = "mindorg.fixtures.v2";
   var STORAGE_FXPREFS = "mindorg.fixtureprefs.v1";
+  var STORAGE_ROUTINES = "mindorg.routines.v1";
+
+  // Seeded once on first load. After that the saved copy in localStorage
+  // wins, so toggling a routine off (or editing later) sticks.
+  function DEFAULT_ROUTINES() {
+    return [
+      { id: "routine-feed-enzo", label: "Feed Enzo", categoryId: "dog",
+        times: ["09:00", "13:00", "17:00", "21:00"], enabled: true },
+      { id: "routine-wipe-eyes", label: "Wipe Enzo's eyes", categoryId: "dog",
+        times: ["20:00"], enabled: true }
+    ];
+  }
 
   var CATEGORIES = [
     { id: "work", name: "Happiness Entertainment", short: "Work", color: "#F0B429",
@@ -621,6 +647,8 @@
       keywords: ["note","idea","thought"] },
     { id: "sports", name: "Sports", short: "Sports", color: "#C8102E",
       keywords: ["liverpool","lfc","anfield","ufc","fight","match","kickoff","premier league","champions league","salah"] },
+    { id: "dog", name: "Enzo", short: "Enzo", color: "#C9A876",
+      keywords: ["enzo","dog","poodle","puppy","vet","groom","walk the dog","dog food","feed enzo","wipe eyes","paws"] },
     { id: "inbox", name: "Inbox", short: "Inbox", color: "#8B90A0", keywords: [] }
   ];
   var CAT_BY_ID = {};
@@ -800,6 +828,7 @@
     composerOpen: false,
     fixtures: load(STORAGE_FIXTURES) || [],
     fixturePrefs: load(STORAGE_FXPREFS) || {},
+    routines: load(STORAGE_ROUTINES) || DEFAULT_ROUTINES(),
     sportsFilter: null,   // null = hub, else 'liverpool' | 'ufc'
     openFixtureId: null,
     fixtureDetail: {},     // id -> detail payload, or 'loading' / 'error'
@@ -956,7 +985,8 @@
     film:      '<rect x="3" y="4.6" width="18" height="14.8" rx="2.4"/><path d="M8 4.6v14.8M16 4.6v14.8M3 12h18"/>',
     note:      '<path d="M5 3.8h9.4L19 8.4v11.8H5z"/><path d="M14.2 3.8v4.8H19"/><path d="M8.4 13h7M8.4 16.4h4.6"/>',
     layers:    '<path d="M12 3.2l8.6 4.6L12 12.4 3.4 7.8z"/><path d="M3.4 12.4L12 17l8.6-4.6"/>',
-    spark:     '<path d="M12 3.2l1.9 5.6 5.6 1.9-5.6 1.9L12 18.2l-1.9-5.6-5.6-1.9 5.6-1.9z"/>'
+    spark:     '<path d="M12 3.2l1.9 5.6 5.6 1.9-5.6 1.9L12 18.2l-1.9-5.6-5.6-1.9 5.6-1.9z"/>',
+    paw:       '<circle cx="12" cy="15.6" r="4.1"/><circle cx="6.2" cy="8.8" r="1.9"/><circle cx="10.5" cy="5.6" r="1.9"/><circle cx="14.7" cy="5.6" r="1.9"/><circle cx="18" cy="9" r="1.9"/>'
   };
   function ico(name, size, extra) {
     var d = ICON_PATHS[name];
@@ -1074,6 +1104,9 @@
     } else if (state.filter === "all") {
       html += renderFixtures();
       html += renderHealthEssentials(todayKey, "home");
+      html += renderTaskList();
+    } else if (state.filter === "dog") {
+      html += renderRoutines("dog");
       html += renderTaskList();
     } else if (state.filter === "notes") {
       html += renderNotesComposer();
@@ -1854,6 +1887,35 @@
     return state.sportsFilter ? renderSportsSchedule(state.sportsFilter) : renderSportsHub();
   }
 
+
+  function renderRoutines(kind) {
+    var mine = (state.routines || []).filter(function (r) { return r.categoryId === kind; });
+    if (mine.length === 0) return "";
+
+    var html = '<div class="card k-r" style="animation-delay:.14s">' +
+      '<div class="eyebrow">' + ico("paw", 13) + ' Daily routines</div>';
+
+    mine.forEach(function (r) {
+      var on = r.enabled !== false;
+      html += '<div class="routine-row">' +
+        '<div class="routine-info">' +
+          '<div class="routine-label">' + escapeHtml(r.label) + '</div>' +
+          '<div class="routine-times mono">' + r.times.map(function (t) {
+            var h = parseInt(t.slice(0, 2), 10);
+            var ampm = h >= 12 ? "PM" : "AM";
+            var h12 = h % 12 === 0 ? 12 : h % 12;
+            return h12 + (ampm === "AM" ? "am" : "pm");
+          }).join("  ·  ") + '</div>' +
+        '</div>' +
+        '<button class="routine-toggle' + (on ? " on" : "") + '" data-action="toggle-routine" data-id="' + r.id + '">' +
+          ico("bell", 13) +
+        '</button>' +
+      '</div>';
+    });
+
+    return html + '</div>';
+  }
+
   function renderFocusSplit() {
     var open = tasks.filter(function (t) { return !t.done && t.categoryId !== "notes"; });
     if (open.length === 0) {
@@ -2027,6 +2089,14 @@
     else if (action === "fixture-detail") { toggleFixtureDetail(id); }
     else if (action === "sports-open") { state.sportsFilter = btn.getAttribute("data-kind"); render(); }
     else if (action === "sports-back") { state.sportsFilter = null; render(); }
+    else if (action === "toggle-routine") {
+      state.routines = state.routines.map(function (r) {
+        return r.id === id ? Object.assign({}, r, { enabled: r.enabled === false }) : r;
+      });
+      save(STORAGE_ROUTINES, state.routines);
+      syncTasksToServer();
+      render();
+    }
     else if (action === "toggle-fx-reminder") { toggleFixtureReminder(id); }
     else if (action === "open-composer") { state.composerOpen = true; render(); }
     else if (action === "close-composer") { state.composerOpen = false; state.inputValue = ""; render(); }
@@ -2299,7 +2369,7 @@
         fetch(API_BASE + "/api/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tasks: tasksForServer(), fixturePrefs: state.fixturePrefs })
+          body: JSON.stringify({ tasks: tasksForServer(), fixturePrefs: state.fixturePrefs, routines: state.routines })
         }).catch(function () {});
       });
     });
@@ -2317,7 +2387,7 @@
           fetch(API_BASE + "/api/subscribe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ subscription: sub, tasks: tasksForServer(), fixturePrefs: state.fixturePrefs })
+            body: JSON.stringify({ subscription: sub, tasks: tasksForServer(), fixturePrefs: state.fixturePrefs, routines: state.routines })
           }).catch(function () {});
         }).catch(function (e) { console.error("push subscribe failed", e); });
       });
