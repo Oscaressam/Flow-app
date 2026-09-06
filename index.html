@@ -418,6 +418,33 @@
     animation:fxLive 1.6s ease-in-out infinite;
   }
   @keyframes fxLive { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+  /* ---------- sports tab ---------- */
+  .sp-event { padding:14px 0; border-bottom:1px solid var(--hairline); }
+  .sp-event:last-child { border-bottom:none; padding-bottom:2px; }
+  .sp-cd {
+    display:inline-block; font-size:11px; font-weight:700; color:var(--accent);
+    background:var(--accent-soft); padding:5px 9px; border-radius:8px; margin-bottom:10px;
+  }
+  .sp-cd.live { background:#FF6B3522; color:#FF6B35; animation:fxLive 1.6s ease-in-out infinite; }
+  .sp-title {
+    font-family:'Bricolage Grotesque','Inter',sans-serif; font-weight:800;
+    font-size:19px; letter-spacing:-.03em; line-height:1.2;
+  }
+  .sp-meta { font-size:9.5px; letter-spacing:.16em; color:var(--dim); margin-top:6px; text-transform:uppercase; }
+  .sp-when { font-size:13px; color:var(--text); margin-top:9px; font-weight:500; }
+  .sp-venue { font-size:10.5px; color:var(--muted); margin-top:4px; }
+  .sp-rem { font-size:9.5px; color:var(--dim); margin-top:10px; display:flex; align-items:center; gap:5px; }
+
+  .sp-rem {
+    display:flex; align-items:center; gap:6px; margin-top:11px; cursor:pointer;
+    background:var(--surface-1); border:1px solid var(--hairline-strong);
+    border-radius:10px; padding:7px 10px; color:var(--dim); font-family:inherit;
+    transition:background .18s, color .18s, border-color .18s;
+  }
+  .sp-rem span { font-size:9.5px; letter-spacing:.08em; }
+  .sp-rem.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  .sp-rem:active { transform:scale(.97); }
 </style>
 </head>
 <body>
@@ -438,6 +465,7 @@
   var VAPID_PUBLIC_KEY = "BGY-SgdY5MSwdE32mnMAtuJbQh7ClMXS3xs1RRzHHJcUAtylb-6L2iTm5RuOZ_1JOnkb27kyoZCt2DkjRAd_SeI";
   var API_BASE = "https://flow-app-snowy.vercel.app";
   var STORAGE_FIXTURES = "mindorg.fixtures.v1";
+  var STORAGE_FXPREFS = "mindorg.fixtureprefs.v1";
 
   var CATEGORIES = [
     { id: "work", name: "Happiness Entertainment", short: "Work", color: "#F0B429",
@@ -456,6 +484,8 @@
       keywords: ["gym","workout","supplement","vitamin","doctor","appointment","protein","health","checkup","dentist"] },
     { id: "notes", name: "Notes", short: "Notes", color: "#60A5FA",
       keywords: ["note","idea","thought"] },
+    { id: "sports", name: "Sports", short: "Sports", color: "#C8102E",
+      keywords: ["liverpool","lfc","anfield","ufc","fight","match","kickoff","premier league","champions league","salah"] },
     { id: "inbox", name: "Inbox", short: "Inbox", color: "#8B90A0", keywords: [] }
   ];
   var CAT_BY_ID = {};
@@ -634,6 +664,7 @@
   var state = {
     composerOpen: false,
     fixtures: load(STORAGE_FIXTURES) || [],
+    fixturePrefs: load(STORAGE_FXPREFS) || {},
     filter: "all",
     inputValue: "",
     editState: { type: null, id: null },
@@ -892,11 +923,14 @@
       html += '</div></div>';
     }
 
-    if (state.filter === "health") {
+    if (state.filter === "sports") {
+      html += renderSportsView();
+    } else if (state.filter === "health") {
       html += renderHealthEssentials(todayKey, "healthtab");
       html += renderCalendarCard(todayKey);
       html += renderTaskList();
     } else if (state.filter === "all") {
+      html += renderFixtures();
       html += renderHealthEssentials(todayKey, "home");
       html += renderTaskList();
     } else if (state.filter === "notes") {
@@ -1327,6 +1361,79 @@
     return html + '</div>';
   }
 
+
+
+  // Reminders default ON for the next 3 fixtures of each kind; an explicit
+  // toggle always overrides. Mirrors the same rule on the server.
+  function fixtureReminderOn(f) {
+    var explicit = state.fixturePrefs[f.id];
+    if (explicit !== undefined) return !!explicit;
+    var sameKind = (state.fixtures || [])
+      .filter(function (x) { return x.kind === f.kind; })
+      .sort(function (a, b) { return new Date(a.startUTC) - new Date(b.startUTC); });
+    return sameKind.indexOf(f) > -1 && sameKind.indexOf(f) < 3;
+  }
+
+  function toggleFixtureReminder(id) {
+    var f = (state.fixtures || []).filter(function (x) { return x.id === id; })[0];
+    if (!f) return;
+    state.fixturePrefs[id] = !fixtureReminderOn(f);
+    save(STORAGE_FXPREFS, state.fixturePrefs);
+    syncTasksToServer();
+    render();
+  }
+
+  function renderSportsView() {
+    var all = (state.fixtures || []).filter(function (f) {
+      return new Date(f.startUTC).getTime() > Date.now() - 4 * 60 * 60 * 1000;
+    });
+
+    var html = "";
+
+    if (all.length === 0) {
+      html += '<div class="card k-r" style="animation-delay:.3s">' +
+        '<div class="eyebrow">' + ico("spark", 13) + ' Fixtures</div>' +
+        '<p class="empty" style="padding:10px 0;">Nothing loaded yet — pull the app open with a connection and the next Liverpool match and UFC event will appear here.</p>' +
+        '</div>';
+    }
+
+    // one card per source, so each has room to breathe
+    [
+      { kind: "liverpool", label: "Liverpool FC", accent: "#C8102E", badge: "LFC" },
+      { kind: "ufc", label: "UFC", accent: "#FF6B35", badge: "UFC" }
+    ].forEach(function (src, i) {
+      var mine = all.filter(function (f) { return f.kind === src.kind; })
+        .sort(function (a, b) { return new Date(a.startUTC) - new Date(b.startUTC); });
+      if (mine.length === 0) return;
+
+      html += '<div class="card k-r" style="animation-delay:.' + (28 + i * 8) + 's">' +
+        '<div class="eyebrow"><span style="color:' + src.accent + '">' + src.badge + '</span> &nbsp;' + src.label + '</div>';
+
+      mine.forEach(function (f) {
+        var d = new Date(f.startUTC);
+        var dayStr = d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
+        var timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+        var live = d.getTime() <= Date.now();
+        var on = fixtureReminderOn(f);
+
+        html += '<div class="sp-event">' +
+          '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</div>' +
+          '<div class="sp-title">' + escapeHtml(f.title) + '</div>' +
+          '<div class="sp-meta mono">' + escapeHtml(f.competition || "") + '</div>' +
+          '<div class="sp-when">' + dayStr + (f.timeKnown ? '  ·  ' + timeStr : '  ·  time TBC') + '</div>' +
+          (f.venue ? '<div class="sp-venue mono">' + escapeHtml(f.venue) + '</div>' : '') +
+          '<button class="sp-rem' + (on ? " on" : "") + '" data-action="toggle-fx-reminder" data-id="' + f.id + '">' +
+            ico("bell", 12) + '<span class="mono">' + (on ? "Night before + 1h out" : "Reminders off") + '</span>' +
+          '</button>' +
+        '</div>';
+      });
+
+      html += '</div>';
+    });
+
+    return html;
+  }
+
   function renderFocusSplit() {
     var open = tasks.filter(function (t) { return !t.done && t.categoryId !== "notes"; });
     if (open.length === 0) {
@@ -1414,7 +1521,6 @@
     });
     html += '</div>';
 
-    html += renderFixtures();
     html += renderFocusSplit();
     html += renderMomentum();
     return html;
@@ -1498,6 +1604,7 @@
       tasks = tasks.map(function (t) { return t.id === id ? Object.assign({}, t, { dueDate: null }) : t; });
       persistTasks(); render();
     }
+    else if (action === "toggle-fx-reminder") { toggleFixtureReminder(el.getAttribute("data-id")); }
     else if (action === "open-composer") { state.composerOpen = true; render(); }
     else if (action === "close-composer") { state.composerOpen = false; state.inputValue = ""; render(); }
     else if (action === "toggle-notif") { toggleNotif(); }
@@ -1755,7 +1862,7 @@
         fetch(API_BASE + "/api/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tasks: tasksForServer() })
+          body: JSON.stringify({ tasks: tasksForServer(), fixturePrefs: state.fixturePrefs })
         }).catch(function () {});
       });
     });
@@ -1773,7 +1880,7 @@
           fetch(API_BASE + "/api/subscribe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ subscription: sub, tasks: tasksForServer() })
+            body: JSON.stringify({ subscription: sub, tasks: tasksForServer(), fixturePrefs: state.fixturePrefs })
           }).catch(function () {});
         }).catch(function (e) { console.error("push subscribe failed", e); });
       });

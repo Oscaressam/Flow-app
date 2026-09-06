@@ -6,7 +6,13 @@
 // feed, not a full season schedule. Refreshing daily keeps it current.
 
 const TSDB_KEY = process.env.THESPORTSDB_KEY || "123"; // 123 = shared free key
-const LIVERPOOL_TEAM_ID = "133602";
+const LIVERPOOL_TEAM_ID = "133602";        // TheSportsDB (fallback)
+const FD_KEY = process.env.FOOTBALL_DATA_KEY || "";
+const FD_LIVERPOOL_ID = "64";              // football-data.org team id
+// football-data.org free tier covers 12 competitions — PL and UCL included,
+// FA Cup / Carabao Cup are NOT. Those fixtures simply won't appear.
+const FD_URL = "https://api.football-data.org/v4/teams/" + FD_LIVERPOOL_ID +
+  "/matches?status=SCHEDULED";
 const UFC_LEAGUE_ID = "4443";
 const CACHE_KEY = "flow:fixtures";
 const BASE = "https://www.thesportsdb.com/api/v1/json/";
@@ -63,6 +69,32 @@ function normalise(ev, kind) {
   };
 }
 
+
+// Full Liverpool schedule (Premier League + Champions League) from
+// football-data.org. Returns [] if no key is configured so the caller
+// can fall back to TheSportsDB's single next fixture.
+async function fetchLiverpoolFull() {
+  if (!FD_KEY) return [];
+  const r = await fetch(FD_URL, { headers: { "X-Auth-Token": FD_KEY } });
+  if (!r.ok) throw new Error("football-data " + r.status);
+  const data = await r.json();
+  const matches = data.matches || [];
+  return matches.map(function (m) {
+    const home = (m.homeTeam && (m.homeTeam.shortName || m.homeTeam.name)) || "";
+    const away = (m.awayTeam && (m.awayTeam.shortName || m.awayTeam.name)) || "";
+    return {
+      id: "fx-liverpool-fd-" + m.id,
+      kind: "liverpool",
+      title: home && away ? home + " vs " + away : "Liverpool match",
+      competition: (m.competition && m.competition.name) || "Football",
+      venue: "",
+      startUTC: new Date(m.utcDate).toISOString(),
+      // football-data marks unconfirmed kickoffs with a midnight UTC time
+      timeKnown: !!m.utcDate && !/T00:00:00/.test(m.utcDate),
+    };
+  }).filter(function (f) { return !isNaN(new Date(f.startUTC).getTime()); });
+}
+
 async function fetchJson(url) {
   const r = await fetch(url, { headers: { "User-Agent": "MindORG/1.0" } });
   if (!r.ok) throw new Error("upstream " + r.status);
@@ -74,14 +106,28 @@ async function refreshFixtures() {
   const out = [];
   const errors = [];
 
+  let gotFull = false;
   try {
-    const d = await fetchJson(BASE + TSDB_KEY + "/eventsnext.php?id=" + LIVERPOOL_TEAM_ID);
-    (d.events || []).forEach(function (ev) {
-      const n = normalise(ev, "liverpool");
-      if (n) out.push(n);
-    });
+    const full = await fetchLiverpoolFull();
+    if (full.length) {
+      full.forEach(function (f) { out.push(f); });
+      gotFull = true;
+    }
   } catch (e) {
-    errors.push("liverpool: " + String(e.message || e));
+    errors.push("football-data: " + String(e.message || e));
+  }
+
+  // fallback: TheSportsDB gives one next fixture, better than nothing
+  if (!gotFull) {
+    try {
+      const d = await fetchJson(BASE + TSDB_KEY + "/eventsnext.php?id=" + LIVERPOOL_TEAM_ID);
+      (d.events || []).forEach(function (ev) {
+        const n = normalise(ev, "liverpool");
+        if (n) out.push(n);
+      });
+    } catch (e) {
+      errors.push("liverpool fallback: " + String(e.message || e));
+    }
   }
 
   try {
@@ -96,7 +142,7 @@ async function refreshFixtures() {
 
   out.sort(function (a, b) { return new Date(a.startUTC) - new Date(b.startUTC); });
 
-  const payload = { fixtures: out, fetchedAt: Date.now(), errors: errors };
+  const payload = { fixtures: out, fetchedAt: Date.now(), errors: errors, fullSchedule: gotFull };
 
   // Never overwrite good data with an empty result (upstream hiccup / rate limit)
   if (out.length === 0) {

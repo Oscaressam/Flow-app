@@ -152,7 +152,31 @@ module.exports = async (req, res) => {
       }
 
       const fixtures = (fxData && fxData.fixtures) || [];
+
+      // Explicit per-fixture choices win. Anything the user hasn't touched
+      // defaults to ON for the next 3 of each kind, OFF beyond that — so a
+      // full 60-match season doesn't carpet-bomb him with reminders.
+      let prefs = {};
+      try {
+        const prefRaw = await redisCmd(["GET", "flow:fxprefs"]);
+        if (prefRaw) prefs = JSON.parse(prefRaw) || {};
+      } catch (e) {}
+
+      const rank = {};
+      const seen = {};
+      fixtures
+        .slice()
+        .sort((a, b) => new Date(a.startUTC) - new Date(b.startUTC))
+        .forEach((f) => {
+          seen[f.kind] = (seen[f.kind] || 0) + 1;
+          rank[f.id] = seen[f.kind];
+        });
+
       for (const fx of fixtures) {
+        const explicit = prefs[fx.id];
+        const enabled = explicit === undefined ? (rank[fx.id] || 99) <= 3 : !!explicit;
+        if (!enabled) continue;
+
         for (const trig of reminderTriggers(fx)) {
           const key = fx.id + ":" + trig.suffix;
           if (notified[key]) continue;
