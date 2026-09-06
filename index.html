@@ -445,6 +445,15 @@
   .sp-rem span { font-size:9.5px; letter-spacing:.08em; }
   .sp-rem.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
   .sp-rem:active { transform:scale(.97); }
+
+  .fx-crests { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+  .fx-crests img {
+    object-fit:contain; display:block;
+    filter:drop-shadow(0 2px 5px rgba(0,0,0,.35));
+  }
+  .sp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .sp-head .sp-cd { margin-bottom:0; }
+  .sp-head .fx-crests { gap:6px; }
 </style>
 </head>
 <body>
@@ -1316,6 +1325,27 @@
       .catch(function () { /* offline: keep the cached copy */ });
   }
 
+
+  // Badges come from football-data (club crests) and ESPN (UFC mark).
+  // Everything degrades to the text label if an image is missing or fails.
+  function fixtureBadge(f, size) {
+    var px = size || 26;
+    if (f.kind === "liverpool" && (f.homeCrest || f.awayCrest)) {
+      var img = function (src) {
+        return src
+          ? '<img src="' + escapeHtml(src) + '" alt="" loading="lazy" ' +
+            'onerror="this.style.display=\'none\'" style="width:' + px + 'px;height:' + px + 'px" />'
+          : '';
+      };
+      return '<span class="fx-crests">' + img(f.homeCrest) + img(f.awayCrest) + '</span>';
+    }
+    if (f.mark) {
+      return '<span class="fx-crests"><img src="' + escapeHtml(f.mark) + '" alt="" loading="lazy" ' +
+        'onerror="this.style.display=\'none\'" style="width:' + px + 'px;height:' + px + 'px" /></span>';
+    }
+    return "";
+  }
+
   function countdownLabel(startUTC) {
     var ms = new Date(startUTC).getTime() - Date.now();
     if (ms <= 0) return "LIVE NOW";
@@ -1346,9 +1376,10 @@
       var accent = isUfc ? "#FF6B35" : "#C8102E";   // UFC orange / Liverpool red
       var live = new Date(f.startUTC).getTime() <= Date.now();
 
+      var badge = fixtureBadge(f, 24);
       html += '<div class="fx">' +
-        '<span class="fx-kind" style="background:' + accent + '22;color:' + accent + '">' +
-          (isUfc ? "UFC" : "LFC") + '</span>' +
+        (badge || '<span class="fx-kind" style="background:' + accent + '22;color:' + accent + '">' +
+          (isUfc ? "UFC" : "LFC") + '</span>') +
         '<div class="fx-body">' +
           '<div class="fx-title">' + escapeHtml(f.title) + '</div>' +
           '<div class="fx-meta mono">' + escapeHtml(f.competition || "") +
@@ -1417,7 +1448,10 @@
         var on = fixtureReminderOn(f);
 
         html += '<div class="sp-event">' +
-          '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</div>' +
+          '<div class="sp-head">' +
+            '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</div>' +
+            fixtureBadge(f, 30) +
+          '</div>' +
           '<div class="sp-title">' + escapeHtml(f.title) + '</div>' +
           '<div class="sp-meta mono">' + escapeHtml(f.competition || "") + '</div>' +
           '<div class="sp-when">' + dayStr + (f.timeKnown ? '  ·  ' + timeStr : '  ·  time TBC') + '</div>' +

@@ -110,7 +110,20 @@ module.exports = async (req, res) => {
     const notifiedRaw = await redisCmd(["GET", "flow:notified"]);
 
     if (!subRaw || !tasksRaw) {
-      res.status(200).json({ ok: true, skipped: "no subscription or tasks yet" });
+      // No push subscription yet — but keep the fixture cache warm anyway so
+      // the Sports tab is current the moment the app is opened.
+      let refreshed = false;
+      try {
+        const fxRaw = await redisCmd(["GET", "flow:fixtures"]);
+        let fxData = null;
+        try { fxData = fxRaw ? JSON.parse(fxRaw) : null; } catch (e) {}
+        const sixHours = 6 * 60 * 60 * 1000;
+        if (!fxData || !fxData.fetchedAt || Date.now() - fxData.fetchedAt > sixHours) {
+          await refreshFixtures();
+          refreshed = true;
+        }
+      } catch (e) {}
+      res.status(200).json({ ok: true, skipped: "no subscription or tasks yet", refreshed });
       return;
     }
 

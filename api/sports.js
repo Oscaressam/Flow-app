@@ -20,6 +20,7 @@ const UFC_LEAGUE_ID = "4443";              // TheSportsDB (fallback)
 const ESPN_UFC_URL = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard";
 // Contender Series are prospect tryout shows, not main UFC cards.
 const UFC_EXCLUDE = /contender series/i;
+const UFC_MARK = "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png";
 const CACHE_KEY = "flow:fixtures";
 const BASE = "https://www.thesportsdb.com/api/v1/json/";
 
@@ -109,6 +110,7 @@ async function fetchUfcFull() {
         venue: "",
         startUTC: iso,
         timeKnown: true,
+        mark: UFC_MARK,
       };
     });
 }
@@ -131,6 +133,10 @@ async function fetchLiverpoolFull() {
       title: home && away ? home + " vs " + away : "Liverpool match",
       competition: (m.competition && m.competition.name) || "Football",
       venue: "",
+      // real club crests, served by football-data
+      homeCrest: (m.homeTeam && m.homeTeam.crest) || "",
+      awayCrest: (m.awayTeam && m.awayTeam.crest) || "",
+      compEmblem: (m.competition && m.competition.emblem) || "",
       startUTC: new Date(m.utcDate).toISOString(),
       // football-data marks unconfirmed kickoffs with a midnight UTC time
       timeKnown: !!m.utcDate && !/T00:00:00/.test(m.utcDate),
