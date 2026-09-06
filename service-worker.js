@@ -1,4 +1,4 @@
-const CACHE_NAME = "mindorg-cache-v25";
+const CACHE_NAME = "mindorg-cache-v26";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./brain-hero.png", "./badge-72.png"];
 
 self.addEventListener("install", (event) => {

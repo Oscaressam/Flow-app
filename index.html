@@ -595,7 +595,32 @@
   }
   .routine-toggle.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
 
-  .chip .ico { margin-right:5px; vertical-align:-.15em; }
+
+  /* ---------- icon-only category chips ---------- */
+  .chips { flex-wrap:wrap; }
+  .cat-chip {
+    position:relative; width:44px; height:44px; border-radius:15px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; padding:0;
+    background:var(--glass); border:1px solid var(--glass-border);
+    backdrop-filter:blur(14px) saturate(150%); -webkit-backdrop-filter:blur(14px) saturate(150%);
+    color:var(--cat-color); cursor:pointer;
+    transition:transform .18s cubic-bezier(.16,1,.3,1), background .18s, border-color .18s;
+  }
+  .cat-chip:active { transform:scale(.92); }
+  .cat-chip .ico { opacity:.75; transition:opacity .18s; }
+  .cat-chip.active {
+    background:color-mix(in srgb, var(--cat-color) 22%, transparent);
+    border-color:var(--cat-color);
+    box-shadow:0 0 14px -4px color-mix(in srgb, var(--cat-color) 60%, transparent);
+  }
+  .cat-chip.active .ico { opacity:1; }
+  .cat-badge {
+    position:absolute; top:-4px; right:-4px; min-width:17px; height:17px; padding:0 4px;
+    border-radius:9px; background:var(--cat-color); color:#0B0D12;
+    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; line-height:1;
+    box-shadow:0 0 0 2px var(--bg);
+  }
 </style>
 </head>
 <body>
@@ -1089,11 +1114,17 @@
     html += '</div>';
 
     html += '<div class="chips k-r" style="animation-delay:.24s">';
-    html += '<button class="chip" data-action="set-filter" data-id="all" style="' + (state.filter === "all" ? "background:var(--accent);color:var(--on-accent);border-color:transparent;" : "") + '">' + ico("grid", 13) + ' All <span class="mono">' + tasks.length + '</span></button>';
+    html += '<button class="cat-chip' + (state.filter === "all" ? " active" : "") + '" data-action="set-filter" data-id="all" style="--cat-color:var(--accent)" title="All">' +
+      ico("grid", 19) +
+      (tasks.length ? '<span class="cat-badge">' + tasks.length + '</span>' : '') +
+    '</button>';
     CATEGORIES.forEach(function (cat) {
       var count = tasks.filter(function (t) { return t.categoryId === cat.id; }).length;
       var active = state.filter === cat.id;
-      html += '<button class="chip" data-action="set-filter" data-id="' + cat.id + '" style="' + (active ? "background:" + cat.color + ";color:#0B0D12;border-color:transparent;" : "") + '">' + ico(cat.iconName, 13) + ' ' + cat.short + ' <span class="mono">' + count + '</span></button>';
+      html += '<button class="cat-chip' + (active ? " active" : "") + '" data-action="set-filter" data-id="' + cat.id + '" style="--cat-color:' + cat.color + '" title="' + cat.short + '">' +
+        ico(cat.iconName, 19) +
+        (count ? '<span class="cat-badge">' + count + '</span>' : '') +
+      '</button>';
     });
     html += '</div>';
 
