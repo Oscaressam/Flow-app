@@ -26,7 +26,7 @@ const ESPN_UFC_URL = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scor
 // Contender Series are prospect tryout shows, not main UFC cards.
 const UFC_EXCLUDE = /contender series/i;
 const UFC_MARK = "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png";
-const CACHE_KEY = "flow:fixtures";
+const CACHE_KEY = "flow:fixtures:v2";
 const BASE = "https://www.thesportsdb.com/api/v1/json/";
 
 async function redisCmd(cmd) {
