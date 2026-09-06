@@ -525,6 +525,25 @@
     font-size:22px; letter-spacing:-.035em; }
   .sh-sub { font-size:9.5px; letter-spacing:.14em; color:var(--dim);
     text-transform:uppercase; margin-top:3px; }
+
+  /* ---------- native-app feel ----------
+     Stop text selection, the long-press callout menu, and the blue tap flash
+     on chrome the user can't act on. Anything genuinely editable is exempted
+     below, otherwise notes and the composer would become untypable. */
+  body {
+    -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none;
+    -webkit-touch-callout:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  input, textarea, select, [contenteditable="true"] {
+    -webkit-user-select:text; -moz-user-select:text; -ms-user-select:text; user-select:text;
+    -webkit-touch-callout:default;
+  }
+  /* images shouldn't be draggable or long-press saveable */
+  img { -webkit-user-drag:none; user-drag:none; pointer-events:none; }
+  /* click delegation uses closest(), so taps pass through to the parent button */
+
+  button, .tile, .chip, .habit, .sport-tile, .fx, .check { cursor:pointer; }
 </style>
 </head>
 <body>
