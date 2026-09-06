@@ -78,6 +78,58 @@ function normalise(ev, kind) {
 
 
 
+
+// The scoreboard's `events` array carries the full fight card for whichever
+// event is currently nearest: fighters, country flags, records, weight classes,
+// venue and broadcaster. Future events only ever get a label + start time
+// (the ?dates= param is ignored by this endpoint), so this enriches one event.
+function buildFightCard(evt) {
+  const comps = (evt && evt.competitions) || [];
+  const fights = comps.map(function (c) {
+    const cs = (c.competitors || []).slice().sort(function (a, b) {
+      return (a.order || 0) - (b.order || 0);
+    });
+    const side = function (x) {
+      const a = (x && x.athlete) || {};
+      const rec = ((x && x.records) || [])[0];
+      return {
+        name: a.displayName || a.fullName || "",
+        shortName: a.shortName || "",
+        flag: (a.flag && a.flag.href) || "",
+        country: (a.flag && a.flag.alt) || "",
+        record: (rec && rec.summary) || "",
+      };
+    };
+    return {
+      weight: (c.type && c.type.abbreviation) || "",
+      // championship and main-event bouts are scheduled for 5 rounds
+      isMain: !!(c.format && c.format.regulation && c.format.regulation.periods === 5),
+      startUTC: c.startDate ? new Date(c.startDate).toISOString() : null,
+      a: cs[0] ? side(cs[0]) : null,
+      b: cs[1] ? side(cs[1]) : null,
+    };
+  }).filter(function (f) { return f.a && f.b && f.a.name && f.b.name; });
+
+  if (fights.length === 0) return null;
+
+  // ESPN lists prelims first; the headliner is the 5-rounder, else the last bout
+  let mainIdx = fights.map(function (f) { return f.isMain; }).lastIndexOf(true);
+  if (mainIdx === -1) mainIdx = fights.length - 1;
+  const main = fights[mainIdx];
+
+  const venueObj = (comps[0] && comps[0].venue) || {};
+  const addr = venueObj.address || {};
+
+  return {
+    main: main,
+    fights: fights.slice().reverse(),   // headliner first
+    fightCount: fights.length,
+    venue: venueObj.fullName || "",
+    city: [addr.city, addr.country].filter(Boolean).join(", "),
+    broadcast: (evt.competitions && evt.competitions[0] && evt.competitions[0].broadcast) || "",
+  };
+}
+
 // Full UFC season from ESPN's calendar array.
 async function fetchUfcFull() {
   const r = await fetch(ESPN_UFC_URL, { headers: { Accept: "application/json" } });
@@ -86,6 +138,14 @@ async function fetchUfcFull() {
   const league = (data.leagues || [])[0];
   const calendar = (league && league.calendar) || [];
   const now = Date.now();
+
+  // map detailed events by id so we can attach a card to the right fixture
+  const detailById = {};
+  (data.events || []).forEach(function (evt) {
+    if (!evt || !evt.id) return;
+    const card = buildFightCard(evt);
+    if (card) detailById[String(evt.id)] = card;
+  });
 
   return calendar
     .filter(function (c) {
@@ -99,18 +159,23 @@ async function fetchUfcFull() {
       // the calendar's startDate tracks the main card, not the prelims
       const iso = new Date(c.startDate).toISOString();
       let id = "fx-ufc-espn-" + iso;
+      let espnId = null;
       const ref = c.event && c.event.$ref;
       const m = ref && ref.match(/events\/(\d+)/);
-      if (m) id = "fx-ufc-espn-" + m[1];
+      if (m) { espnId = m[1]; id = "fx-ufc-espn-" + m[1]; }
+      const card = espnId ? detailById[espnId] : null;
       return {
         id: id,
         kind: "ufc",
         title: c.label,
         competition: "UFC",
-        venue: "",
+        venue: (card && card.venue) || "",
+        city: (card && card.city) || "",
+        broadcast: (card && card.broadcast) || "",
         startUTC: iso,
         timeKnown: true,
         mark: UFC_MARK,
+        card: card || null,
       };
     });
 }

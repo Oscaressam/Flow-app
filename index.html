@@ -454,6 +454,33 @@
   .sp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .sp-head .sp-cd { margin-bottom:0; }
   .sp-head .fx-crests { gap:6px; }
+
+  /* ---------- UFC fight card ---------- */
+  .card-detail { margin-top:13px; padding-top:13px; border-top:1px solid var(--hairline); }
+  .mainevent { display:flex; align-items:flex-start; gap:10px; }
+  .ft { flex:1; min-width:0; }
+  .ft.r { text-align:right; }
+  .ft-flag {
+    width:30px; height:20px; object-fit:cover; border-radius:3px; display:block;
+    box-shadow:0 2px 6px rgba(0,0,0,.4);
+  }
+  .ft.r .ft-flag { margin-left:auto; }
+  .ft-name { font-size:13px; font-weight:700; letter-spacing:-.01em; margin-top:7px; line-height:1.2; }
+  .ft-rec { font-size:9.5px; color:var(--dim); margin-top:3px; }
+  .vs {
+    font-size:10px; font-weight:700; color:var(--accent); flex-shrink:0;
+    align-self:center; letter-spacing:.1em; padding-top:6px;
+  }
+  .me-weight {
+    font-size:9px; letter-spacing:.18em; color:var(--dim);
+    text-transform:uppercase; margin-top:11px; text-align:center;
+  }
+  .me-extra { font-size:10.5px; color:var(--muted); margin-top:8px; text-align:center; line-height:1.4; }
+  .undercard { margin-top:12px; padding-top:10px; border-top:1px dashed var(--hairline); }
+  .uc-row { display:flex; gap:9px; align-items:baseline; padding:4px 0; }
+  .uc-w { font-size:8.5px; letter-spacing:.1em; color:var(--dim); width:66px; flex-shrink:0; text-transform:uppercase; }
+  .uc-n { font-size:11.5px; color:var(--muted); flex:1; min-width:0; }
+  .uc-n i { color:var(--dim); font-style:normal; font-size:9px; }
 </style>
 </head>
 <body>
@@ -1414,6 +1441,53 @@
     render();
   }
 
+
+  function renderFightCard(f) {
+    var c = f.card;
+    if (!c || !c.main) return "";
+    var m = c.main;
+
+    var fighter = function (x, align) {
+      return '<div class="ft ' + align + '">' +
+        (x.flag ? '<img class="ft-flag" src="' + escapeHtml(x.flag) + '" alt="' + escapeHtml(x.country) +
+          '" loading="lazy" onerror="this.style.display=\'none\'" />' : '') +
+        '<div class="ft-name">' + escapeHtml(x.name) + '</div>' +
+        (x.record ? '<div class="ft-rec mono">' + escapeHtml(x.record) + '</div>' : '') +
+      '</div>';
+    };
+
+    var html = '<div class="card-detail">';
+    html += '<div class="mainevent">' +
+      fighter(m.a, "l") +
+      '<div class="vs mono">VS</div>' +
+      fighter(m.b, "r") +
+    '</div>';
+
+    if (m.weight) html += '<div class="me-weight mono">' + escapeHtml(m.weight) + ' &middot; main event</div>';
+
+    var extras = [];
+    if (c.venue) extras.push(c.venue + (c.city ? ", " + c.city : ""));
+    if (c.broadcast) extras.push(c.broadcast);
+    if (c.fightCount > 1) extras.push(c.fightCount + " fights on the card");
+    if (extras.length) html += '<div class="me-extra">' + escapeHtml(extras.join("  ·  ")) + '</div>';
+
+    // the rest of the card, headliner already shown above
+    var rest = (c.fights || []).slice(1, 6);
+    if (rest.length) {
+      html += '<div class="undercard">';
+      rest.forEach(function (b) {
+        html += '<div class="uc-row">' +
+          '<span class="uc-w mono">' + escapeHtml(b.weight || "") + '</span>' +
+          '<span class="uc-n">' + escapeHtml(b.a.shortName || b.a.name) +
+            ' <i class="mono">v</i> ' + escapeHtml(b.b.shortName || b.b.name) + '</span>' +
+        '</div>';
+      });
+      html += '</div>';
+    }
+
+    return html + '</div>';
+  }
+
   function renderSportsView() {
     var all = (state.fixtures || []).filter(function (f) {
       return new Date(f.startUTC).getTime() > Date.now() - 4 * 60 * 60 * 1000;
@@ -1455,7 +1529,8 @@
           '<div class="sp-title">' + escapeHtml(f.title) + '</div>' +
           '<div class="sp-meta mono">' + escapeHtml(f.competition || "") + '</div>' +
           '<div class="sp-when">' + dayStr + (f.timeKnown ? '  ·  ' + timeStr : '  ·  time TBC') + '</div>' +
-          (f.venue ? '<div class="sp-venue mono">' + escapeHtml(f.venue) + '</div>' : '') +
+          (f.venue ? '<div class="sp-venue mono">' + escapeHtml(f.venue) + (f.city ? '  ·  ' + escapeHtml(f.city) : '') + '</div>' : '') +
+          renderFightCard(f) +
           '<button class="sp-rem' + (on ? " on" : "") + '" data-action="toggle-fx-reminder" data-id="' + f.id + '">' +
             ico("bell", 12) + '<span class="mono">' + (on ? "Night before + 1h out" : "Reminders off") + '</span>' +
           '</button>' +
