@@ -1594,28 +1594,40 @@
 
     html += '</div>';
 
-    // nearest fixture across both, so the hub still answers "what's next"
-    var soonest = upcomingFixtures(null)[0];
-    if (soonest) {
-      var src = SPORT_SOURCES.filter(function (x) { return x.kind === soonest.kind; })[0];
-      var d = new Date(soonest.startUTC);
+    // The next fixture from EACH source — showing only the global soonest
+    // meant UFC vanished whenever a Liverpool match happened to be nearer.
+    var nextEach = SPORT_SOURCES
+      .map(function (src) {
+        var f = upcomingFixtures(src.kind)[0];
+        return f ? { src: src, f: f } : null;
+      })
+      .filter(Boolean)
+      .sort(function (a, b) { return new Date(a.f.startUTC) - new Date(b.f.startUTC); });
+
+    if (nextEach.length) {
       html += '<div class="card k-r" style="animation-delay:.22s">' +
-        '<div class="eyebrow">' + ico("spark", 13) + ' Next up</div>' +
-        '<div class="sp-event" style="padding-top:2px">' +
+        '<div class="eyebrow">' + ico("spark", 13) + ' Next up</div>';
+
+      nextEach.forEach(function (n) {
+        var f = n.f, d = new Date(f.startUTC);
+        var live = d.getTime() <= Date.now();
+        html += '<div class="sp-event">' +
           '<div class="sp-head">' +
-            '<div class="sp-cd mono">' + countdownLabel(soonest.startUTC) + '</div>' +
-            fixtureBadge(soonest, 30) +
+            '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</div>' +
+            fixtureBadge(f, 30) +
           '</div>' +
-          '<div class="sp-title">' + escapeHtml(soonest.title) + '</div>' +
-          '<div class="sp-meta mono">' + escapeHtml(soonest.competition || (src ? src.label : "")) + '</div>' +
+          '<div class="sp-title">' + escapeHtml(f.title) + '</div>' +
+          '<div class="sp-meta mono">' + escapeHtml(f.competition || n.src.label) + '</div>' +
           '<div class="sp-when">' +
             d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" }) +
-            (soonest.timeKnown
+            (f.timeKnown
               ? '  ·  ' + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
               : '  ·  time TBC') +
           '</div>' +
-        '</div>' +
-      '</div>';
+        '</div>';
+      });
+
+      html += '</div>';
     }
 
     return html;
