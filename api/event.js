@@ -6,7 +6,7 @@
 // Every ESPN shape here is undocumented, so all parsing is defensive: a
 // missing branch yields an empty section rather than a failed request.
 
-const CACHE_PREFIX = "flow:evt:v1:";
+const CACHE_PREFIX = "flow:evt:v2:";
 const TTL_SECONDS = 60 * 60 * 6;
 
 async function redisCmd(cmd) {
@@ -36,51 +36,77 @@ function pick(obj, path, fallback) {
 }
 
 // ---------------- UFC ----------------
-function parseUfc(data) {
-  // ESPN puts the bouts under different keys depending on the view, so try
-  // each in turn rather than assuming one shape.
-  const groups =
-    pick(data, ["cards"], null) ||
-    pick(data, ["competitions"], null) ||
-    pick(data, ["header", "competitions"], null) ||
-    [];
+// The site-API `summary?event=` route 404s for MMA, so use the core API's
+// event object. It returns every bout inline (weight class, cardSegment,
+// round format) but athletes are $ref links, so those are resolved in
+// parallel afterwards.
+const UFC_EVENT_URL = "https://sports.core.api.espn.com/v2/sports/mma/leagues/ufc/events/";
 
-  const bouts = [];
-  (Array.isArray(groups) ? groups : []).forEach(function (g) {
-    const list = g.competitions || (g.competitors ? [g] : []);
-    (list || []).forEach(function (c) {
-      const cs = (c.competitors || []).slice().sort(function (a, b) {
-        return (a.order || 0) - (b.order || 0);
-      });
-      const side = function (x) {
-        const a = (x && (x.athlete || x)) || {};
-        const rec = ((x && x.records) || [])[0];
-        return {
-          name: a.displayName || a.fullName || a.shortName || "",
-          flag: pick(a, ["flag", "href"], ""),
-          country: pick(a, ["flag", "alt"], ""),
-          headshot: pick(a, ["headshot", "href"], ""),
-          record: (rec && rec.summary) || "",
-        };
-      };
-      if (cs.length < 2) return;
-      const a = side(cs[0]), b = side(cs[1]);
-      if (!a.name || !b.name) return;
-      bouts.push({
-        weight: pick(c, ["type", "abbreviation"], "") || pick(c, ["type", "text"], ""),
-        segment: g.name || g.label || "",
-        isMain: pick(c, ["format", "regulation", "periods"], 3) === 5,
-        a: a,
-        b: b,
-      });
+function fixRef(ref) {
+  return String(ref || "").replace("sports.core.api.espn.pvt", "sports.core.api.espn.com")
+                          .replace(/^http:/, "https:");
+}
+
+async function fetchUfcCard(id) {
+  const ev = await getJson(UFC_EVENT_URL + id);
+  const comps = Array.isArray(ev.competitions) ? ev.competitions : [];
+
+  // gather every athlete ref once, de-duplicated
+  const refs = {};
+  comps.forEach(function (c) {
+    (c.competitors || []).forEach(function (x) {
+      const r = fixRef(pick(x, ["athlete", "$ref"], ""));
+      if (r) refs[x.id] = r;
     });
   });
 
+  const ids = Object.keys(refs).slice(0, 40);   // hard cap; a card is ~26
+  const people = {};
+  const settled = await Promise.allSettled(
+    ids.map(function (aid) { return getJson(refs[aid]); })
+  );
+  settled.forEach(function (res, i) {
+    if (res.status !== "fulfilled") return;
+    const a = res.value || {};
+    people[ids[i]] = {
+      name: a.displayName || a.fullName || a.shortName || "",
+      flag: pick(a, ["flag", "href"], ""),
+      country: pick(a, ["flag", "alt"], ""),
+      headshot: pick(a, ["headshot", "href"], ""),
+      nickname: a.nickname || "",
+    };
+  });
+
+  const bouts = comps.map(function (c) {
+    const cs = (c.competitors || []).slice().sort(function (a, b) {
+      return (a.order || 0) - (b.order || 0);
+    });
+    if (cs.length < 2) return null;
+    const a = people[cs[0].id] || { name: "" };
+    const b = people[cs[1].id] || { name: "" };
+    if (!a.name || !b.name) return null;
+    return {
+      weight: pick(c, ["type", "text"], "") || pick(c, ["type", "abbreviation"], ""),
+      segment: pick(c, ["cardSegment", "description"], ""),
+      order: c.matchNumber || 0,
+      isMain: pick(c, ["format", "regulation", "periods"], 3) === 5,
+      rounds: pick(c, ["format", "regulation", "periods"], null),
+      a: a,
+      b: b,
+    };
+  }).filter(Boolean);
+
+  // matchNumber 1 is the headliner, so ascending puts the main event first
+  bouts.sort(function (x, y) { return (x.order || 99) - (y.order || 99); });
+
+  const v = pick(comps, [0, "venue"], {}) || {};
+  const addr = v.address || {};
   return {
     bouts: bouts,
-    venue: pick(data, ["gameInfo", "venue", "fullName"], "") ||
-           pick(data, ["header", "competitions", 0, "venue", "fullName"], ""),
-    note: bouts.length ? "" : "Fight card not published yet.",
+    name: ev.name || "",
+    venue: v.fullName || "",
+    city: [addr.city, addr.state, addr.country].filter(Boolean).join(", "),
+    note: bouts.length ? "" : "Fight card not announced yet.",
   };
 }
 
@@ -160,10 +186,7 @@ module.exports = async (req, res) => {
 
   try {
     if (kind === "ufc") {
-      const d = await getJson(
-        "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/summary?event=" + id
-      );
-      payload = Object.assign(payload, parseUfc(d));
+      payload = Object.assign(payload, await fetchUfcCard(id));
     } else {
       const base = "https://site.api.espn.com/apis/site/v2/sports/soccer/" + league;
       const summary = await getJson(base + "/summary?event=" + id).catch(function (e) {
