@@ -13,7 +13,13 @@ const FD_LIVERPOOL_ID = "64";              // football-data.org team id
 // FA Cup / Carabao Cup are NOT. Those fixtures simply won't appear.
 const FD_URL = "https://api.football-data.org/v4/teams/" + FD_LIVERPOOL_ID +
   "/matches?status=SCHEDULED";
-const UFC_LEAGUE_ID = "4443";
+const UFC_LEAGUE_ID = "4443";              // TheSportsDB (fallback)
+// ESPN's public MMA endpoint. Undocumented but keyless, and its `calendar`
+// array carries the whole season. Not a supported contract — if ESPN changes
+// or blocks it, the TheSportsDB fallback below still returns the next event.
+const ESPN_UFC_URL = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard";
+// Contender Series are prospect tryout shows, not main UFC cards.
+const UFC_EXCLUDE = /contender series/i;
 const CACHE_KEY = "flow:fixtures";
 const BASE = "https://www.thesportsdb.com/api/v1/json/";
 
@@ -69,6 +75,43 @@ function normalise(ev, kind) {
   };
 }
 
+
+
+// Full UFC season from ESPN's calendar array.
+async function fetchUfcFull() {
+  const r = await fetch(ESPN_UFC_URL, { headers: { Accept: "application/json" } });
+  if (!r.ok) throw new Error("espn " + r.status);
+  const data = await r.json();
+  const league = (data.leagues || [])[0];
+  const calendar = (league && league.calendar) || [];
+  const now = Date.now();
+
+  return calendar
+    .filter(function (c) {
+      if (!c || !c.startDate || !c.label) return false;
+      if (UFC_EXCLUDE.test(c.label)) return false;
+      const t = new Date(c.startDate).getTime();
+      // keep anything not yet finished (4h grace for a card in progress)
+      return !isNaN(t) && t > now - 4 * 60 * 60 * 1000;
+    })
+    .map(function (c) {
+      // the calendar's startDate tracks the main card, not the prelims
+      const iso = new Date(c.startDate).toISOString();
+      let id = "fx-ufc-espn-" + iso;
+      const ref = c.event && c.event.$ref;
+      const m = ref && ref.match(/events\/(\d+)/);
+      if (m) id = "fx-ufc-espn-" + m[1];
+      return {
+        id: id,
+        kind: "ufc",
+        title: c.label,
+        competition: "UFC",
+        venue: "",
+        startUTC: iso,
+        timeKnown: true,
+      };
+    });
+}
 
 // Full Liverpool schedule (Premier League + Champions League) from
 // football-data.org. Returns [] if no key is configured so the caller
@@ -130,19 +173,32 @@ async function refreshFixtures() {
     }
   }
 
+  let gotUfcFull = false;
   try {
-    const d = await fetchJson(BASE + TSDB_KEY + "/eventsnextleague.php?id=" + UFC_LEAGUE_ID);
-    (d.events || []).forEach(function (ev) {
-      const n = normalise(ev, "ufc");
-      if (n) out.push(n);
-    });
+    const ufc = await fetchUfcFull();
+    if (ufc.length) {
+      ufc.forEach(function (f) { out.push(f); });
+      gotUfcFull = true;
+    }
   } catch (e) {
-    errors.push("ufc: " + String(e.message || e));
+    errors.push("espn: " + String(e.message || e));
+  }
+
+  if (!gotUfcFull) {
+    try {
+      const d = await fetchJson(BASE + TSDB_KEY + "/eventsnextleague.php?id=" + UFC_LEAGUE_ID);
+      (d.events || []).forEach(function (ev) {
+        const n = normalise(ev, "ufc");
+        if (n) out.push(n);
+      });
+    } catch (e) {
+      errors.push("ufc fallback: " + String(e.message || e));
+    }
   }
 
   out.sort(function (a, b) { return new Date(a.startUTC) - new Date(b.startUTC); });
 
-  const payload = { fixtures: out, fetchedAt: Date.now(), errors: errors, fullSchedule: gotFull };
+  const payload = { fixtures: out, fetchedAt: Date.now(), errors: errors, fullSchedule: gotFull, fullUfc: gotUfcFull };
 
   // Never overwrite good data with an empty result (upstream hiccup / rate limit)
   if (out.length === 0) {
