@@ -2024,10 +2024,10 @@
       tasks = tasks.map(function (t) { return t.id === id ? Object.assign({}, t, { dueDate: null }) : t; });
       persistTasks(); render();
     }
-    else if (action === "fixture-detail") { toggleFixtureDetail(el.getAttribute("data-id")); }
-    else if (action === "sports-open") { state.sportsFilter = el.getAttribute("data-kind"); render(); }
+    else if (action === "fixture-detail") { toggleFixtureDetail(id); }
+    else if (action === "sports-open") { state.sportsFilter = btn.getAttribute("data-kind"); render(); }
     else if (action === "sports-back") { state.sportsFilter = null; render(); }
-    else if (action === "toggle-fx-reminder") { toggleFixtureReminder(el.getAttribute("data-id")); }
+    else if (action === "toggle-fx-reminder") { toggleFixtureReminder(id); }
     else if (action === "open-composer") { state.composerOpen = true; render(); }
     else if (action === "close-composer") { state.composerOpen = false; state.inputValue = ""; render(); }
     else if (action === "toggle-notif") { toggleNotif(); }
