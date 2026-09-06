@@ -1755,12 +1755,15 @@
       nextEach.forEach(function (n) {
         var f = n.f, d = new Date(f.startUTC);
         var live = d.getTime() <= Date.now();
-        html += '<div class="sp-event">' +
+        var open = state.openFixtureId === f.id;
+        html += '<div class="sp-event' + (open ? " open" : "") + '">' +
+          '<div class="sp-tap" data-action="fixture-detail" data-id="' + f.id + '">' +
           '<div class="sp-head">' +
             '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</div>' +
             fixtureBadge(f, 30) +
           '</div>' +
-          '<div class="sp-title">' + escapeHtml(f.title) + '</div>' +
+          '<div class="sp-title">' + escapeHtml(f.title) +
+            '<span class="sp-chev">' + (open ? "&#9650;" : "&#9660;") + '</span></div>' +
           '<div class="sp-meta mono">' + escapeHtml(f.competition || n.src.label) + '</div>' +
           '<div class="sp-when">' +
             d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" }) +
@@ -1768,6 +1771,9 @@
               ? '  ·  ' + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
               : '  ·  time TBC') +
           '</div>' +
+          '</div>' +
+          renderFightCard(f) +
+          renderDetailPanel(f) +
         '</div>';
       });
 
