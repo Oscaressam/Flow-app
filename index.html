@@ -530,12 +530,18 @@
      Stop text selection, the long-press callout menu, and the blue tap flash
      on chrome the user can't act on. Anything genuinely editable is exempted
      below, otherwise notes and the composer would become untypable. */
-  body {
+  /* Applied to every element rather than relying on inheritance from body —
+     user-select does not cascade reliably into all descendants on Android
+     Chrome, which left most text still long-press selectable. */
+  html, body, *, *::before, *::after {
     -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none;
     -webkit-touch-callout:none;
     -webkit-tap-highlight-color:transparent;
   }
-  input, textarea, select, [contenteditable="true"] {
+  /* everything genuinely typeable stays fully selectable */
+  input, textarea, select,
+  input *, textarea *,
+  [contenteditable], [contenteditable] * {
     -webkit-user-select:text; -moz-user-select:text; -ms-user-select:text; user-select:text;
     -webkit-touch-callout:default;
   }
