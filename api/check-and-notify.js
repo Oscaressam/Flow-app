@@ -1,5 +1,57 @@
 const webpush = require("web-push");
 
+// ---------- fixture reminders (Liverpool + UFC) ----------
+const { refreshFixtures } = require("./sports.js");
+
+// Egypt observes DST, so the Cairo offset is not a constant +03.
+// Derive it from the actual instant instead of hardcoding.
+function tzOffsetMs(date, tz) {
+  const asUTC = new Date(date.toLocaleString("en-US", { timeZone: "UTC" }));
+  const asTz = new Date(date.toLocaleString("en-US", { timeZone: tz }));
+  return asTz.getTime() - asUTC.getTime();
+}
+
+function cairoParts(date) {
+  const f = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit",
+  });
+  const [y, m, d] = f.format(date).split("-").map(Number);
+  return { y, m, d };
+}
+
+// Convert a Cairo wall-clock time into a real UTC epoch.
+function cairoWallToUTC(y, m, d, hh, mm) {
+  let guess = Date.UTC(y, m - 1, d, hh - 3, mm);
+  for (let i = 0; i < 2; i++) {
+    const off = tzOffsetMs(new Date(guess), "Africa/Cairo");
+    guess = Date.UTC(y, m - 1, d, hh, mm) - off;
+  }
+  return guess;
+}
+
+function cairoTimeLabel(iso) {
+  return new Date(iso).toLocaleTimeString("en-GB", {
+    hour: "2-digit", minute: "2-digit", timeZone: "Africa/Cairo",
+  });
+}
+
+// Two reminders per fixture: 21:00 Cairo the night before, and one hour out.
+function reminderTriggers(fx) {
+  const start = new Date(fx.startUTC).getTime();
+  if (isNaN(start)) return [];
+
+  const dayOf = cairoParts(new Date(start));
+  const nightBefore = cairoWallToUTC(dayOf.y, dayOf.m, dayOf.d, 21, 0) - 24 * 3600 * 1000;
+
+  const label = fx.kind === "ufc" ? "UFC" : (fx.competition || "LIVERPOOL").toUpperCase();
+  const timeStr = fx.timeKnown ? cairoTimeLabel(fx.startUTC) : "time TBC";
+
+  return [
+    { suffix: "night", at: nightBefore, title: "Tomorrow: " + fx.title, body: label + "  ·  " + timeStr },
+    { suffix: "hour", at: start - 60 * 60 * 1000, title: fx.title, body: label + (fx.timeKnown ? "  ·  starts " + timeStr : "  ·  starting soon") },
+  ];
+}
+
 // mirrors CATEGORIES in index.html — used to label the notification
 const CATEGORY_LABEL = {
   work: "WORK",
@@ -86,8 +138,44 @@ module.exports = async (req, res) => {
       }
     }
 
+    // ---- fixtures ----
+    let fixtureSent = 0;
+    try {
+      const fxRaw = await redisCmd(["GET", "flow:fixtures"]);
+      let fxData = null;
+      try { fxData = fxRaw ? JSON.parse(fxRaw) : null; } catch (e) {}
+
+      // refresh at most every 6h, piggybacking on this existing cron
+      const sixHours = 6 * 60 * 60 * 1000;
+      if (!fxData || !fxData.fetchedAt || now - fxData.fetchedAt > sixHours) {
+        try { fxData = await refreshFixtures(); } catch (e) {}
+      }
+
+      const fixtures = (fxData && fxData.fixtures) || [];
+      for (const fx of fixtures) {
+        for (const trig of reminderTriggers(fx)) {
+          const key = fx.id + ":" + trig.suffix;
+          if (notified[key]) continue;
+          // fire only inside a 3h window, so a first deploy or an outage
+          // doesn't dump a pile of long-past reminders
+          if (trig.at > now || now - trig.at > 3 * 60 * 60 * 1000) {
+            if (now - trig.at > 3 * 60 * 60 * 1000) notified[key] = true;
+            continue;
+          }
+          try {
+            await webpush.sendNotification(
+              subscription,
+              JSON.stringify({ title: trig.title, body: trig.body, tag: key })
+            );
+            fixtureSent++;
+          } catch (e) {}
+          notified[key] = true;
+        }
+      }
+    } catch (e) {}
+
     await redisCmd(["SET", "flow:notified", JSON.stringify(notified)]);
-    res.status(200).json({ ok: true, sent });
+    res.status(200).json({ ok: true, sent, fixtureSent });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

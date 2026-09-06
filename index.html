@@ -398,6 +398,26 @@
   .mo-col s { font-size:9.5px; color:var(--dim); text-decoration:none; }
   .mo-col s.now { color:var(--accent); font-weight:700; }
   .mo-note { font-size:11.5px; color:var(--muted); margin-top:9px; }
+
+  /* ---------- fixtures ---------- */
+  .fx { display:flex; align-items:center; gap:11px; padding:11px 0; border-bottom:1px solid var(--hairline); }
+  .fx:last-child { border-bottom:none; padding-bottom:2px; }
+  .fx-kind {
+    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700; letter-spacing:.1em;
+    padding:5px 7px; border-radius:7px; flex-shrink:0;
+  }
+  .fx-body { flex:1; min-width:0; }
+  .fx-title { font-size:13.5px; font-weight:600; letter-spacing:-.01em; line-height:1.25; }
+  .fx-meta { font-size:9.5px; color:var(--dim); margin-top:4px; letter-spacing:.04em; }
+  .fx-cd {
+    font-size:11px; font-weight:700; color:var(--accent); flex-shrink:0;
+    background:var(--accent-soft); padding:5px 8px; border-radius:8px;
+  }
+  .fx-cd.live {
+    background:#FF6B3522; color:#FF6B35;
+    animation:fxLive 1.6s ease-in-out infinite;
+  }
+  @keyframes fxLive { 0%,100%{opacity:1} 50%{opacity:.45} }
 </style>
 </head>
 <body>
@@ -417,6 +437,7 @@
   var CAFFEINE_MG_PER_ML = 95 / 240;
   var VAPID_PUBLIC_KEY = "BGY-SgdY5MSwdE32mnMAtuJbQh7ClMXS3xs1RRzHHJcUAtylb-6L2iTm5RuOZ_1JOnkb27kyoZCt2DkjRAd_SeI";
   var API_BASE = "https://flow-app-snowy.vercel.app";
+  var STORAGE_FIXTURES = "mindorg.fixtures.v1";
 
   var CATEGORIES = [
     { id: "work", name: "Happiness Entertainment", short: "Work", color: "#F0B429",
@@ -612,6 +633,7 @@
 
   var state = {
     composerOpen: false,
+    fixtures: load(STORAGE_FIXTURES) || [],
     filter: "all",
     inputValue: "",
     editState: { type: null, id: null },
@@ -1241,6 +1263,70 @@
   }
 
   // ---- WIDGET: where the open work actually sits ----
+
+  // ---------- fixtures: Liverpool + UFC ----------
+  function fetchFixtures() {
+    fetch(API_BASE + "/api/sports")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.fixtures) return;
+        // drop anything that has already finished (generous 4h buffer)
+        var cutoff = Date.now() - 4 * 60 * 60 * 1000;
+        var live = data.fixtures.filter(function (f) {
+          return new Date(f.startUTC).getTime() > cutoff;
+        });
+        state.fixtures = live;
+        save(STORAGE_FIXTURES, live);
+        render();
+      })
+      .catch(function () { /* offline: keep the cached copy */ });
+  }
+
+  function countdownLabel(startUTC) {
+    var ms = new Date(startUTC).getTime() - Date.now();
+    if (ms <= 0) return "LIVE NOW";
+    var mins = Math.floor(ms / 60000);
+    var days = Math.floor(mins / 1440);
+    var hrs = Math.floor((mins % 1440) / 60);
+    if (days > 0) return days + "d " + hrs + "h";
+    if (hrs > 0) return hrs + "h " + (mins % 60) + "m";
+    return mins + "m";
+  }
+
+  function renderFixtures() {
+    var fx = (state.fixtures || []).filter(function (f) {
+      return new Date(f.startUTC).getTime() > Date.now() - 4 * 60 * 60 * 1000;
+    });
+    if (fx.length === 0) return "";
+
+    var html = '<div class="card k-r" style="animation-delay:.66s">' +
+      '<div class="eyebrow">' + ico("spark", 13) + ' Up next</div>';
+
+    fx.slice(0, 4).forEach(function (f) {
+      var d = new Date(f.startUTC);
+      var when = d.toLocaleString([], {
+        weekday: "short", day: "numeric", month: "short",
+        hour: "2-digit", minute: "2-digit", hour12: false
+      });
+      var isUfc = f.kind === "ufc";
+      var accent = isUfc ? "#FF6B35" : "#C8102E";   // UFC orange / Liverpool red
+      var live = new Date(f.startUTC).getTime() <= Date.now();
+
+      html += '<div class="fx">' +
+        '<span class="fx-kind" style="background:' + accent + '22;color:' + accent + '">' +
+          (isUfc ? "UFC" : "LFC") + '</span>' +
+        '<div class="fx-body">' +
+          '<div class="fx-title">' + escapeHtml(f.title) + '</div>' +
+          '<div class="fx-meta mono">' + escapeHtml(f.competition || "") +
+            (f.timeKnown ? "  ·  " + when : "  ·  " + when.split(",")[0] + "  ·  TBC") + '</div>' +
+        '</div>' +
+        '<span class="fx-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</span>' +
+      '</div>';
+    });
+
+    return html + '</div>';
+  }
+
   function renderFocusSplit() {
     var open = tasks.filter(function (t) { return !t.done && t.categoryId !== "notes"; });
     if (open.length === 0) {
@@ -1328,6 +1414,7 @@
     });
     html += '</div>';
 
+    html += renderFixtures();
     html += renderFocusSplit();
     html += renderMomentum();
     return html;
@@ -1731,6 +1818,16 @@
   render();
   checkDueReminders();
   backfillMissingCovers();
+  fetchFixtures();
+
+  // refresh fixtures when the app is reopened, at most every 30 min
+  var lastFixtureFetch = Date.now();
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && Date.now() - lastFixtureFetch > 30 * 60 * 1000) {
+      lastFixtureFetch = Date.now();
+      fetchFixtures();
+    }
+  });
 
   function backfillMissingCovers() {
     var missing = libraryItems.filter(function (i) { return !i.coverUrl; });
