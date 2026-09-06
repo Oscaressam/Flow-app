@@ -550,6 +550,36 @@
   /* click delegation uses closest(), so taps pass through to the parent button */
 
   button, .tile, .chip, .habit, .sport-tile, .fx, .check { cursor:pointer; }
+
+  /* ---------- fixture detail ---------- */
+  .sp-tap { cursor:pointer; }
+  .sp-chev { float:right; font-size:9px; color:var(--dim); margin-top:5px; }
+  .sp-event.open { background:var(--surface-1); border-radius:14px;
+    margin:0 -10px; padding-left:10px; padding-right:10px; }
+  .detail { margin-top:12px; padding-top:12px; border-top:1px dashed var(--hairline);
+    animation:kRise .38s cubic-bezier(.16,1,.3,1); }
+  .detail-note { font-size:11.5px; color:var(--muted); padding:4px 0; line-height:1.45; }
+  .detail-seg { font-size:8.5px; letter-spacing:.22em; color:var(--dim);
+    text-transform:uppercase; margin:12px 0 7px; }
+  .detail-seg:first-child { margin-top:0; }
+
+  .bout { padding:7px 0; border-bottom:1px solid var(--hairline); }
+  .bout:last-child { border-bottom:none; }
+  .bout-w { font-size:8px; letter-spacing:.14em; color:var(--dim); text-transform:uppercase; }
+  .bout-main { color:var(--accent); font-weight:700; }
+  .bout-row { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .bout-f { flex:1; min-width:0; font-size:12px; display:flex; align-items:center; gap:5px; }
+  .bout-f.r { justify-content:flex-end; text-align:right; }
+  .bout-f img { width:17px; height:12px; object-fit:cover; border-radius:2px; flex-shrink:0; }
+  .bout-f i { font-style:normal; font-size:9px; color:var(--dim); }
+  .bout-vs { font-size:9px; color:var(--accent); flex-shrink:0; }
+
+  .form-row, .inj { display:flex; justify-content:space-between; align-items:baseline;
+    gap:10px; padding:6px 0; border-bottom:1px solid var(--hairline); }
+  .form-row:last-child, .inj:last-child { border-bottom:none; }
+  .fr-team, .inj-name { font-size:12px; flex:1; min-width:0; }
+  .inj-name i { font-style:normal; font-size:9px; color:var(--dim); }
+  .fr-val, .inj-status { font-size:10px; color:var(--muted); flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -771,6 +801,8 @@
     fixtures: load(STORAGE_FIXTURES) || [],
     fixturePrefs: load(STORAGE_FXPREFS) || {},
     sportsFilter: null,   // null = hub, else 'liverpool' | 'ufc'
+    openFixtureId: null,
+    fixtureDetail: {},     // id -> detail payload, or 'loading' / 'error'
     filter: "all",
     inputValue: "",
     editState: { type: null, id: null },
@@ -1562,6 +1594,112 @@
     return html + '</div>';
   }
 
+
+  function fetchFixtureDetail(f) {
+    if (!f.espnId) { state.fixtureDetail[f.id] = { error: "No detail available" }; render(); return; }
+    state.fixtureDetail[f.id] = "loading";
+    render();
+    var q = "?kind=" + f.kind + "&id=" + encodeURIComponent(f.espnId);
+    if (f.kind === "liverpool") {
+      q += "&league=" + encodeURIComponent(f.leagueSlug || "eng.1") +
+           "&home=" + encodeURIComponent(f.homeId || "") +
+           "&away=" + encodeURIComponent(f.awayId || "");
+    }
+    fetch(API_BASE + "/api/event" + q)
+      .then(function (r) { return r.json(); })
+      .then(function (d) { state.fixtureDetail[f.id] = d || { error: "Empty response" }; render(); })
+      .catch(function () { state.fixtureDetail[f.id] = { error: "Couldn't load — check your connection" }; render(); });
+  }
+
+  function toggleFixtureDetail(id) {
+    if (state.openFixtureId === id) { state.openFixtureId = null; render(); return; }
+    state.openFixtureId = id;
+    var f = (state.fixtures || []).filter(function (x) { return x.id === id; })[0];
+    if (!f) { render(); return; }
+    if (state.fixtureDetail[id] && state.fixtureDetail[id] !== "loading") { render(); return; }
+    fetchFixtureDetail(f);
+  }
+
+  function renderDetailPanel(f) {
+    if (state.openFixtureId !== f.id) return "";
+    var d = state.fixtureDetail[f.id];
+
+    if (d === "loading") {
+      return '<div class="detail"><p class="detail-note">Loading…</p></div>';
+    }
+    if (!d || d.error) {
+      return '<div class="detail"><p class="detail-note">' +
+        escapeHtml((d && d.error) || "Nothing to show") + '</p></div>';
+    }
+
+    var html = '<div class="detail">';
+
+    // ---- UFC: the whole card ----
+    if (f.kind === "ufc") {
+      if (d.bouts && d.bouts.length) {
+        var lastSeg = null;
+        d.bouts.slice().reverse().forEach(function (b) {
+          if (b.segment && b.segment !== lastSeg) {
+            html += '<div class="detail-seg mono">' + escapeHtml(b.segment) + '</div>';
+            lastSeg = b.segment;
+          }
+          html += '<div class="bout">' +
+            '<div class="bout-w mono">' + escapeHtml(b.weight || "") +
+              (b.isMain ? ' <span class="bout-main">MAIN</span>' : '') + '</div>' +
+            '<div class="bout-row">' +
+              '<span class="bout-f">' +
+                (b.a.flag ? '<img src="' + escapeHtml(b.a.flag) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'"/>' : '') +
+                escapeHtml(b.a.name) +
+                (b.a.record ? ' <i class="mono">' + escapeHtml(b.a.record) + '</i>' : '') +
+              '</span>' +
+              '<span class="bout-vs mono">v</span>' +
+              '<span class="bout-f r">' +
+                escapeHtml(b.b.name) +
+                (b.b.record ? ' <i class="mono">' + escapeHtml(b.b.record) + '</i>' : '') +
+                (b.b.flag ? '<img src="' + escapeHtml(b.b.flag) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'"/>' : '') +
+              '</span>' +
+            '</div>' +
+          '</div>';
+        });
+      } else {
+        html += '<p class="detail-note">' + escapeHtml(d.note || "Fight card not published yet.") + '</p>';
+      }
+
+    // ---- Football: team news + form ----
+    } else {
+      if (d.form && d.form.length) {
+        html += '<div class="detail-seg mono">FORM</div>';
+        d.form.forEach(function (t) {
+          html += '<div class="form-row">' +
+            '<span class="fr-team">' + escapeHtml(t.team) + '</span>' +
+            '<span class="fr-val mono">' + escapeHtml(t.form || t.record || "—") + '</span>' +
+          '</div>';
+        });
+      }
+
+      html += '<div class="detail-seg mono">TEAM NEWS</div>';
+      if (d.injuries && d.injuries.length) {
+        d.injuries.slice(0, 12).forEach(function (i) {
+          html += '<div class="inj">' +
+            '<span class="inj-name">' + escapeHtml(i.name) +
+              (i.position ? ' <i class="mono">' + escapeHtml(i.position) + '</i>' : '') + '</span>' +
+            '<span class="inj-status mono">' + escapeHtml(i.status || "out") + '</span>' +
+          '</div>';
+        });
+      } else {
+        html += '<p class="detail-note">' +
+          escapeHtml(d.injuryNote || "No injury list published for this fixture.") + '</p>';
+      }
+
+      var bits = [];
+      if (d.broadcast) bits.push(d.broadcast);
+      if (d.odds) bits.push(d.odds);
+      if (bits.length) html += '<p class="detail-note">' + escapeHtml(bits.join("  ·  ")) + '</p>';
+    }
+
+    return html + '</div>';
+  }
+
   var SPORT_SOURCES = [
     { kind: "liverpool", label: "Liverpool FC", sub: "All competitions", accent: "#C8102E",
       logo: "https://a.espncdn.com/i/teamlogos/soccer/500/364.png" },
@@ -1675,12 +1813,15 @@
       var on = fixtureReminderOn(f);
       i++;
 
-      html += '<div class="sp-event">' +
+      var open = state.openFixtureId === f.id;
+      html += '<div class="sp-event' + (open ? " open" : "") + '">' +
+        '<div class="sp-tap" data-action="fixture-detail" data-id="' + f.id + '">' +
         '<div class="sp-head">' +
           '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</div>' +
           fixtureBadge(f, 30) +
         '</div>' +
-        '<div class="sp-title">' + escapeHtml(f.title) + '</div>' +
+        '<div class="sp-title">' + escapeHtml(f.title) +
+          '<span class="sp-chev">' + (open ? "&#9650;" : "&#9660;") + '</span></div>' +
         '<div class="sp-meta mono">' + escapeHtml(f.competition || "") + '</div>' +
         '<div class="sp-when">' +
           d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" }) +
@@ -1690,7 +1831,9 @@
         '</div>' +
         (f.venue ? '<div class="sp-venue mono">' + escapeHtml(f.venue) +
           (f.city ? '  ·  ' + escapeHtml(f.city) : '') + '</div>' : '') +
+        '</div>' +
         renderFightCard(f) +
+        renderDetailPanel(f) +
         '<button class="sp-rem' + (on ? " on" : "") + '" data-action="toggle-fx-reminder" data-id="' + f.id + '">' +
           ico("bell", 12) + '<span class="mono">' + (on ? "Night before + 1h out" : "Reminders off") + '</span>' +
         '</button>' +
@@ -1875,6 +2018,7 @@
       tasks = tasks.map(function (t) { return t.id === id ? Object.assign({}, t, { dueDate: null }) : t; });
       persistTasks(); render();
     }
+    else if (action === "fixture-detail") { toggleFixtureDetail(el.getAttribute("data-id")); }
     else if (action === "sports-open") { state.sportsFilter = el.getAttribute("data-kind"); render(); }
     else if (action === "sports-back") { state.sportsFilter = null; render(); }
     else if (action === "toggle-fx-reminder") { toggleFixtureReminder(el.getAttribute("data-id")); }

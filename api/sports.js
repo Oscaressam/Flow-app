@@ -26,7 +26,7 @@ const ESPN_UFC_URL = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scor
 // Contender Series are prospect tryout shows, not main UFC cards.
 const UFC_EXCLUDE = /contender series/i;
 const UFC_MARK = "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png";
-const CACHE_KEY = "flow:fixtures:v2";
+const CACHE_KEY = "flow:fixtures:v3";
 const BASE = "https://www.thesportsdb.com/api/v1/json/";
 
 async function redisCmd(cmd) {
@@ -171,6 +171,7 @@ async function fetchUfcFull() {
       const card = espnId ? detailById[espnId] : null;
       return {
         id: id,
+        espnId: espnId || "",
         kind: "ufc",
         title: c.label,
         competition: "UFC",
@@ -219,6 +220,12 @@ async function fetchLiverpoolESPN() {
 
     return {
       id: "fx-liverpool-espn-" + ev.id,
+      espnId: String(ev.id),
+      leagueSlug: (ev.league && ev.league.slug) || "eng.1",
+      homeId: (home.team && String(home.team.id)) || "",
+      awayId: (away.team && String(away.team.id)) || "",
+      homeName: nameOf(home),
+      awayName: nameOf(away),
       kind: "liverpool",
       title: nameOf(home) + " vs " + nameOf(away),
       competition: (ev.league && ev.league.name) || (ev.season && ev.season.displayName) || "Football",
