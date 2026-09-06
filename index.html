@@ -481,6 +481,50 @@
   .uc-w { font-size:8.5px; letter-spacing:.1em; color:var(--dim); width:66px; flex-shrink:0; text-transform:uppercase; }
   .uc-n { font-size:11.5px; color:var(--muted); flex:1; min-width:0; }
   .uc-n i { color:var(--dim); font-style:normal; font-size:9px; }
+
+  /* ---------- sports hub tiles ---------- */
+  .sport-tiles { display:flex; gap:12px; margin-bottom:16px; }
+  .sport-tile {
+    flex:1; position:relative; overflow:hidden; cursor:pointer; font-family:inherit;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:22px 12px 16px; border-radius:24px;
+    background:var(--glass); border:1px solid var(--glass-border);
+    backdrop-filter:blur(var(--glass-blur)) saturate(170%);
+    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(170%);
+    box-shadow:0 12px 40px -18px var(--shadow), inset 0 1px 0 var(--glass-hi);
+    transition:transform .2s cubic-bezier(.16,1,.3,1);
+  }
+  .sport-tile:active { transform:scale(.96); }
+  .st-glow {
+    position:absolute; top:-40%; left:50%; transform:translateX(-50%);
+    width:150px; height:150px; border-radius:50%; pointer-events:none;
+    background:radial-gradient(circle, var(--tile-accent), transparent 68%);
+    opacity:.30;
+  }
+  .st-logo { width:62px; height:62px; object-fit:contain; position:relative; z-index:1;
+    filter:drop-shadow(0 6px 16px rgba(0,0,0,.45)); }
+  .st-label { font-family:'Bricolage Grotesque','Inter',sans-serif; font-weight:800;
+    font-size:14px; letter-spacing:-.02em; margin-top:8px; color:var(--text); }
+  .st-sub { font-size:9px; letter-spacing:.14em; color:var(--dim); text-transform:uppercase; }
+  .st-next {
+    margin-top:8px; font-size:10.5px; font-weight:700; color:var(--accent);
+    background:var(--accent-soft); padding:4px 9px; border-radius:8px;
+  }
+
+  /* ---------- drill-in header ---------- */
+  .sport-back {
+    display:flex; align-items:center; gap:7px; cursor:pointer; font-family:inherit;
+    background:none; border:none; color:var(--muted); padding:4px 0 12px;
+    font-size:12.5px;
+  }
+  .sport-back .ico { transform:scaleX(-1); }
+  .sport-head { display:flex; align-items:center; gap:13px; margin-bottom:6px; }
+  .sh-logo { width:48px; height:48px; object-fit:contain;
+    filter:drop-shadow(0 4px 12px rgba(0,0,0,.4)); }
+  .sh-title { font-family:'Bricolage Grotesque','Inter',sans-serif; font-weight:800;
+    font-size:22px; letter-spacing:-.035em; }
+  .sh-sub { font-size:9.5px; letter-spacing:.14em; color:var(--dim);
+    text-transform:uppercase; margin-top:3px; }
 </style>
 </head>
 <body>
@@ -701,6 +745,7 @@
     composerOpen: false,
     fixtures: load(STORAGE_FIXTURES) || [],
     fixturePrefs: load(STORAGE_FXPREFS) || {},
+    sportsFilter: null,   // null = hub, else 'liverpool' | 'ufc'
     filter: "all",
     inputValue: "",
     editState: { type: null, id: null },
@@ -938,7 +983,11 @@
       html += '<div class="quickadd qa-expand">' +
         '<span class="qa-plus">' + ico("plus", 16) + '</span>' +
         '<input id="quick-input" type="text" placeholder="Type it, it sorts itself…" value="' + escapeHtml(state.inputValue) + '" />' +
-        (previewCat ? '<span class="live-tag" style="background:' + previewCat.color + '25;color:' + previewCat.color + '">' + previewCat.short + '</span>' : '') +
+        '<span class="live-tag" id="live-tag"' +
+          (previewCat
+            ? ' style="background:' + previewCat.color + '25;color:' + previewCat.color + '">' + previewCat.short
+            : ' style="display:none">') +
+        '</span>' +
         '<button class="qa-close" data-action="close-composer">' + ico("close", 15) + '</button>' +
         '</div><p class="hint qa-expand-hint">press enter to file it — tap a tag later to move it</p>';
     }
@@ -1488,59 +1537,135 @@
     return html + '</div>';
   }
 
-  function renderSportsView() {
-    var all = (state.fixtures || []).filter(function (f) {
-      return new Date(f.startUTC).getTime() > Date.now() - 4 * 60 * 60 * 1000;
+  var SPORT_SOURCES = [
+    { kind: "liverpool", label: "Liverpool FC", sub: "All competitions", accent: "#C8102E",
+      logo: "https://a.espncdn.com/i/teamlogos/soccer/500/364.png" },
+    { kind: "ufc", label: "UFC", sub: "Every event", accent: "#FF6B35",
+      logo: "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png" }
+  ];
+
+  function upcomingFixtures(kind) {
+    return (state.fixtures || [])
+      .filter(function (f) {
+        if (kind && f.kind !== kind) return false;
+        return new Date(f.startUTC).getTime() > Date.now() - 4 * 60 * 60 * 1000;
+      })
+      .sort(function (a, b) { return new Date(a.startUTC) - new Date(b.startUTC); });
+  }
+
+  // --- hub: two big tappable crests ---
+  function renderSportsHub() {
+    var html = '<div class="sport-tiles k-r" style="animation-delay:.12s">';
+
+    SPORT_SOURCES.forEach(function (src) {
+      var mine = upcomingFixtures(src.kind);
+      var next = mine[0];
+      html += '<button class="sport-tile" data-action="sports-open" data-kind="' + src.kind + '" ' +
+          'style="--tile-accent:' + src.accent + '">' +
+        '<span class="st-glow"></span>' +
+        '<img class="st-logo" src="' + src.logo + '" alt="" loading="lazy" ' +
+          'onerror="this.style.display=\'none\'" />' +
+        '<span class="st-label">' + src.label + '</span>' +
+        '<span class="st-sub mono">' + (mine.length ? mine.length + " upcoming" : "no fixtures") + '</span>' +
+        (next
+          ? '<span class="st-next mono">' + countdownLabel(next.startUTC) + '</span>'
+          : '') +
+      '</button>';
     });
 
-    var html = "";
+    html += '</div>';
 
-    if (all.length === 0) {
-      html += '<div class="card k-r" style="animation-delay:.3s">' +
-        '<div class="eyebrow">' + ico("spark", 13) + ' Fixtures</div>' +
-        '<p class="empty" style="padding:10px 0;">Nothing loaded yet — pull the app open with a connection and the next Liverpool match and UFC event will appear here.</p>' +
-        '</div>';
+    // nearest fixture across both, so the hub still answers "what's next"
+    var soonest = upcomingFixtures(null)[0];
+    if (soonest) {
+      var src = SPORT_SOURCES.filter(function (x) { return x.kind === soonest.kind; })[0];
+      var d = new Date(soonest.startUTC);
+      html += '<div class="card k-r" style="animation-delay:.22s">' +
+        '<div class="eyebrow">' + ico("spark", 13) + ' Next up</div>' +
+        '<div class="sp-event" style="padding-top:2px">' +
+          '<div class="sp-head">' +
+            '<div class="sp-cd mono">' + countdownLabel(soonest.startUTC) + '</div>' +
+            fixtureBadge(soonest, 30) +
+          '</div>' +
+          '<div class="sp-title">' + escapeHtml(soonest.title) + '</div>' +
+          '<div class="sp-meta mono">' + escapeHtml(soonest.competition || (src ? src.label : "")) + '</div>' +
+          '<div class="sp-when">' +
+            d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" }) +
+            (soonest.timeKnown
+              ? '  ·  ' + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
+              : '  ·  time TBC') +
+          '</div>' +
+        '</div>' +
+      '</div>';
     }
 
-    // one card per source, so each has room to breathe
-    [
-      { kind: "liverpool", label: "Liverpool FC", accent: "#C8102E", badge: "LFC" },
-      { kind: "ufc", label: "UFC", accent: "#FF6B35", badge: "UFC" }
-    ].forEach(function (src, i) {
-      var mine = all.filter(function (f) { return f.kind === src.kind; })
-        .sort(function (a, b) { return new Date(a.startUTC) - new Date(b.startUTC); });
-      if (mine.length === 0) return;
+    return html;
+  }
 
-      html += '<div class="card k-r" style="animation-delay:.' + (28 + i * 8) + 's">' +
-        '<div class="eyebrow"><span style="color:' + src.accent + '">' + src.badge + '</span> &nbsp;' + src.label + '</div>';
+  // --- drill-in: one source's full schedule, grouped by month ---
+  function renderSportsSchedule(kind) {
+    var src = SPORT_SOURCES.filter(function (x) { return x.kind === kind; })[0];
+    if (!src) return renderSportsHub();
 
-      mine.forEach(function (f) {
-        var d = new Date(f.startUTC);
-        var dayStr = d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
-        var timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
-        var live = d.getTime() <= Date.now();
-        var on = fixtureReminderOn(f);
+    var mine = upcomingFixtures(kind);
 
-        html += '<div class="sp-event">' +
-          '<div class="sp-head">' +
-            '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</div>' +
-            fixtureBadge(f, 30) +
-          '</div>' +
-          '<div class="sp-title">' + escapeHtml(f.title) + '</div>' +
-          '<div class="sp-meta mono">' + escapeHtml(f.competition || "") + '</div>' +
-          '<div class="sp-when">' + dayStr + (f.timeKnown ? '  ·  ' + timeStr : '  ·  time TBC') + '</div>' +
-          (f.venue ? '<div class="sp-venue mono">' + escapeHtml(f.venue) + (f.city ? '  ·  ' + escapeHtml(f.city) : '') + '</div>' : '') +
-          renderFightCard(f) +
-          '<button class="sp-rem' + (on ? " on" : "") + '" data-action="toggle-fx-reminder" data-id="' + f.id + '">' +
-            ico("bell", 12) + '<span class="mono">' + (on ? "Night before + 1h out" : "Reminders off") + '</span>' +
-          '</button>' +
-        '</div>';
-      });
+    var html = '<button class="sport-back" data-action="sports-back">' +
+        ico("reset", 14) + '<span>All sports</span></button>';
 
-      html += '</div>';
+    html += '<div class="sport-head k-r" style="animation-delay:.06s;--tile-accent:' + src.accent + '">' +
+      '<img class="sh-logo" src="' + src.logo + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />' +
+      '<div><div class="sh-title">' + src.label + '</div>' +
+      '<div class="sh-sub mono">' + mine.length + ' upcoming &middot; ' + src.sub + '</div></div>' +
+    '</div>';
+
+    if (mine.length === 0) {
+      return html + '<div class="card"><p class="empty" style="padding:10px 0;">' +
+        'Nothing scheduled yet. Open the app with a connection and fixtures will load.</p></div>';
+    }
+
+    var lastMonth = "";
+    var i = 0;
+    mine.forEach(function (f) {
+      var d = new Date(f.startUTC);
+      var monthKey = d.toLocaleDateString([], { month: "long", year: "numeric" });
+      if (monthKey !== lastMonth) {
+        if (lastMonth !== "") html += '</div>';
+        html += '<div class="k-sh" style="margin-top:22px"><h2>' + monthKey + '</h2></div><div class="card">';
+        lastMonth = monthKey;
+      }
+
+      var live = d.getTime() <= Date.now();
+      var on = fixtureReminderOn(f);
+      i++;
+
+      html += '<div class="sp-event">' +
+        '<div class="sp-head">' +
+          '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</div>' +
+          fixtureBadge(f, 30) +
+        '</div>' +
+        '<div class="sp-title">' + escapeHtml(f.title) + '</div>' +
+        '<div class="sp-meta mono">' + escapeHtml(f.competition || "") + '</div>' +
+        '<div class="sp-when">' +
+          d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" }) +
+          (f.timeKnown
+            ? '  ·  ' + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
+            : '  ·  time TBC') +
+        '</div>' +
+        (f.venue ? '<div class="sp-venue mono">' + escapeHtml(f.venue) +
+          (f.city ? '  ·  ' + escapeHtml(f.city) : '') + '</div>' : '') +
+        renderFightCard(f) +
+        '<button class="sp-rem' + (on ? " on" : "") + '" data-action="toggle-fx-reminder" data-id="' + f.id + '">' +
+          ico("bell", 12) + '<span class="mono">' + (on ? "Night before + 1h out" : "Reminders off") + '</span>' +
+        '</button>' +
+      '</div>';
     });
+    if (lastMonth !== "") html += '</div>';
 
     return html;
+  }
+
+  function renderSportsView() {
+    return state.sportsFilter ? renderSportsSchedule(state.sportsFilter) : renderSportsHub();
   }
 
   function renderFocusSplit() {
@@ -1713,6 +1838,8 @@
       tasks = tasks.map(function (t) { return t.id === id ? Object.assign({}, t, { dueDate: null }) : t; });
       persistTasks(); render();
     }
+    else if (action === "sports-open") { state.sportsFilter = el.getAttribute("data-kind"); render(); }
+    else if (action === "sports-back") { state.sportsFilter = null; render(); }
     else if (action === "toggle-fx-reminder") { toggleFixtureReminder(el.getAttribute("data-id")); }
     else if (action === "open-composer") { state.composerOpen = true; render(); }
     else if (action === "close-composer") { state.composerOpen = false; state.inputValue = ""; render(); }
@@ -1840,11 +1967,25 @@
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);
       }
+      // Typing must NOT call render(). A full render rebuilds every card in
+      // the app (hero, fixtures, health, momentum), replays all the entrance
+      // animations, and forces the caret back to the end of the line — which
+      // made it impossible to edit mid-word. Only the category chip needs to
+      // change as you type, so update that node directly.
       input.addEventListener("input", function (e) {
         state.inputValue = e.target.value;
-        render();
-        var el = document.getElementById("quick-input");
-        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+        var tag = document.getElementById("live-tag");
+        if (!tag) return;
+        var cat = state.inputValue.trim() ? CAT_BY_ID[categorize(state.inputValue)] : null;
+        if (cat) {
+          tag.textContent = cat.short;
+          tag.style.display = "";
+          tag.style.background = cat.color + "25";
+          tag.style.color = cat.color;
+        } else {
+          tag.textContent = "";
+          tag.style.display = "none";
+        }
       });
       input.addEventListener("keydown", function (e) {
         if (e.key === "Escape") { state.composerOpen = false; state.inputValue = ""; render(); return; }
