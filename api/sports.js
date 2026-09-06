@@ -13,6 +13,11 @@ const FD_LIVERPOOL_ID = "64";              // football-data.org team id
 // FA Cup / Carabao Cup are NOT. Those fixtures simply won't appear.
 const FD_URL = "https://api.football-data.org/v4/teams/" + FD_LIVERPOOL_ID +
   "/matches?status=SCHEDULED";
+// ESPN's `soccer/all` scope covers every competition Liverpool play — league,
+// Europe, domestic cups and friendlies — with club badges, and needs no key.
+// Undocumented, so football-data and TheSportsDB stay wired as fallbacks.
+const ESPN_LFC_URL =
+  "https://site.web.api.espn.com/apis/site/v2/sports/soccer/all/teams/364/schedule?fixture=true";
 const UFC_LEAGUE_ID = "4443";              // TheSportsDB (fallback)
 // ESPN's public MMA endpoint. Undocumented but keyless, and its `calendar`
 // array carries the whole season. Not a supported contract — if ESPN changes
@@ -180,6 +185,56 @@ async function fetchUfcFull() {
     });
 }
 
+
+async function fetchLiverpoolESPN() {
+  const r = await fetch(ESPN_LFC_URL, { headers: { Accept: "application/json" } });
+  if (!r.ok) throw new Error("espn soccer " + r.status);
+  const data = await r.json();
+  const now = Date.now();
+
+  return (data.events || []).map(function (ev) {
+    const comp = (ev.competitions || [])[0];
+    if (!comp || !ev.date) return null;
+    const t = new Date(ev.date).getTime();
+    if (isNaN(t) || t < now - 4 * 60 * 60 * 1000) return null;
+
+    const cs = comp.competitors || [];
+    const home = cs.filter(function (c) { return c.homeAway === "home"; })[0];
+    const away = cs.filter(function (c) { return c.homeAway === "away"; })[0];
+    if (!home || !away) return null;
+
+    const nameOf = function (c) {
+      return (c.team && (c.team.shortDisplayName || c.team.displayName)) || "";
+    };
+    const crestOf = function (c) {
+      const logos = (c.team && c.team.logos) || [];
+      const def = logos.filter(function (l) {
+        return (l.rel || []).indexOf("default") !== -1;
+      })[0];
+      return (def && def.href) || (logos[0] && logos[0].href) || "";
+    };
+
+    const venue = comp.venue || {};
+    const addr = venue.address || {};
+
+    return {
+      id: "fx-liverpool-espn-" + ev.id,
+      kind: "liverpool",
+      title: nameOf(home) + " vs " + nameOf(away),
+      competition: (ev.league && ev.league.name) || (ev.season && ev.season.displayName) || "Football",
+      venue: venue.fullName || "",
+      city: [addr.city, addr.country].filter(Boolean).join(", "),
+      broadcast: (comp.broadcasts && comp.broadcasts[0] && comp.broadcasts[0].media &&
+                  comp.broadcasts[0].media.shortName) || "",
+      homeCrest: crestOf(home),
+      awayCrest: crestOf(away),
+      startUTC: new Date(ev.date).toISOString(),
+      // ESPN flags a confirmed kickoff with timeValid
+      timeKnown: comp.timeValid !== false,
+    };
+  }).filter(Boolean);
+}
+
 // Full Liverpool schedule (Premier League + Champions League) from
 // football-data.org. Returns [] if no key is configured so the caller
 // can fall back to TheSportsDB's single next fixture.
@@ -221,14 +276,29 @@ async function refreshFixtures() {
   const errors = [];
 
   let gotFull = false;
+
+  // 1st choice: ESPN — all competitions, no key required
   try {
-    const full = await fetchLiverpoolFull();
-    if (full.length) {
-      full.forEach(function (f) { out.push(f); });
+    const espn = await fetchLiverpoolESPN();
+    if (espn.length) {
+      espn.forEach(function (f) { out.push(f); });
       gotFull = true;
     }
   } catch (e) {
-    errors.push("football-data: " + String(e.message || e));
+    errors.push("espn soccer: " + String(e.message || e));
+  }
+
+  // 2nd choice: football-data (needs a key, no domestic cups)
+  if (!gotFull) {
+    try {
+      const full = await fetchLiverpoolFull();
+      if (full.length) {
+        full.forEach(function (f) { out.push(f); });
+        gotFull = true;
+      }
+    } catch (e) {
+      errors.push("football-data: " + String(e.message || e));
+    }
   }
 
   // fallback: TheSportsDB gives one next fixture, better than nothing
