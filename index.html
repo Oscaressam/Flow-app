@@ -594,6 +594,8 @@
     transition:background .18s, color .18s, border-color .18s;
   }
   .routine-toggle.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+
+  .chip .ico { margin-right:5px; vertical-align:-.15em; }
 </style>
 </head>
 <body>
@@ -629,27 +631,27 @@
   }
 
   var CATEGORIES = [
-    { id: "work", name: "Happiness Entertainment", short: "Work", color: "#F0B429",
+    { id: "work", name: "Happiness Entertainment", short: "Work", color: "#F0B429", iconName: "briefcase",
       keywords: ["hotel","animator","animation","jaz","baron","true beach","sharm","marsa alam","shift","staff","guest experience","review platform","tripadvisor","entertainment team","stage","contract","training session","event"] },
-    { id: "vonarson", name: "Vonarson / GuestPulse", short: "Vonarson", color: "#8B7CF6",
+    { id: "vonarson", name: "Vonarson / GuestPulse", short: "Vonarson", color: "#8B7CF6", iconName: "rocket",
       keywords: ["guestpulse","vonarson","saas","pricing page","landing page","investor","pitch deck","roadmap","nfc","qr code","onboarding flow","demo","mvp","no-code","subscriber","churn","prospect"] },
-    { id: "home", name: "Home", short: "Home", color: "#F472B6",
+    { id: "home", name: "Home", short: "Home", color: "#F472B6", iconName: "home",
       keywords: ["buy","home","apartment","furniture","paint","kitchen","curtain","plant","clean","repair","grocery","fix the","decor","living room"] },
-    { id: "books", name: "Books to Read", short: "Books", color: "#34D399",
+    { id: "books", name: "Books to Read", short: "Books", color: "#34D399", iconName: "book",
       keywords: [] },
-    { id: "movies", name: "Movies", short: "Movies", color: "#EF4444",
+    { id: "movies", name: "Movies", short: "Movies", color: "#EF4444", iconName: "film",
       keywords: [] },
-    { id: "series", name: "Series", short: "Series", color: "#FB923C",
+    { id: "series", name: "Series", short: "Series", color: "#FB923C", iconName: "play",
       keywords: [] },
-    { id: "health", name: "Health", short: "Health", color: "#2DD4BF",
+    { id: "health", name: "Health", short: "Health", color: "#2DD4BF", iconName: "heart",
       keywords: ["gym","workout","supplement","vitamin","doctor","appointment","protein","health","checkup","dentist"] },
-    { id: "notes", name: "Notes", short: "Notes", color: "#60A5FA",
+    { id: "notes", name: "Notes", short: "Notes", color: "#60A5FA", iconName: "note",
       keywords: ["note","idea","thought"] },
-    { id: "sports", name: "Sports", short: "Sports", color: "#C8102E",
+    { id: "sports", name: "Sports", short: "Sports", color: "#C8102E", iconName: "spark",
       keywords: ["liverpool","lfc","anfield","ufc","fight","match","kickoff","premier league","champions league","salah"] },
-    { id: "dog", name: "Enzo", short: "Enzo", color: "#C9A876",
+    { id: "dog", name: "Enzo", short: "Enzo", color: "#C9A876", iconName: "paw",
       keywords: ["enzo","dog","poodle","puppy","vet","groom","walk the dog","dog food","feed enzo","wipe eyes","paws"] },
-    { id: "inbox", name: "Inbox", short: "Inbox", color: "#8B90A0", keywords: [] }
+    { id: "inbox", name: "Inbox", short: "Inbox", color: "#8B90A0", iconName: "trayInbox", keywords: [] }
   ];
   var CAT_BY_ID = {};
   CATEGORIES.forEach(function (c) { CAT_BY_ID[c.id] = c; });
@@ -986,7 +988,13 @@
     note:      '<path d="M5 3.8h9.4L19 8.4v11.8H5z"/><path d="M14.2 3.8v4.8H19"/><path d="M8.4 13h7M8.4 16.4h4.6"/>',
     layers:    '<path d="M12 3.2l8.6 4.6L12 12.4 3.4 7.8z"/><path d="M3.4 12.4L12 17l8.6-4.6"/>',
     spark:     '<path d="M12 3.2l1.9 5.6 5.6 1.9-5.6 1.9L12 18.2l-1.9-5.6-5.6-1.9 5.6-1.9z"/>',
-    paw:       '<circle cx="12" cy="15.6" r="4.1"/><circle cx="6.2" cy="8.8" r="1.9"/><circle cx="10.5" cy="5.6" r="1.9"/><circle cx="14.7" cy="5.6" r="1.9"/><circle cx="18" cy="9" r="1.9"/>'
+    paw:       '<circle cx="12" cy="15.6" r="4.1"/><circle cx="6.2" cy="8.8" r="1.9"/><circle cx="10.5" cy="5.6" r="1.9"/><circle cx="14.7" cy="5.6" r="1.9"/><circle cx="18" cy="9" r="1.9"/>',
+    briefcase: '<rect x="3" y="7.4" width="18" height="12.6" rx="2.2"/><path d="M8.4 7.4V5.6a2 2 0 0 1 2-2h3.2a2 2 0 0 1 2 2v1.8"/><path d="M3 12.6h18"/>',
+    rocket:    '<path d="M12 2.6c3 2 4.6 5.6 4.6 9.4 0 2-.5 3.7-1.2 5.2l-3.4-1.6-3.4 1.6c-.7-1.5-1.2-3.2-1.2-5.2 0-3.8 1.6-7.4 4.6-9.4z"/><circle cx="12" cy="10.4" r="1.9"/><path d="M8.6 16.6l-2.4 2.2M15.4 16.6l2.4 2.2M9.4 19.8l1-2.4M14.6 19.8l-1-2.4"/>',
+    home:      '<path d="M4 11.4L12 4l8 7.4"/><path d="M6 10v9.4h12V10"/><path d="M10 19.4v-5.6h4v5.6"/>',
+    grid:      '<rect x="3.4" y="3.4" width="7.4" height="7.4" rx="1.6"/><rect x="13.2" y="3.4" width="7.4" height="7.4" rx="1.6"/><rect x="3.4" y="13.2" width="7.4" height="7.4" rx="1.6"/><rect x="13.2" y="13.2" width="7.4" height="7.4" rx="1.6"/>',
+    heart:     '<path d="M12 20s-7.4-4.6-9.4-9.4C1.4 7.4 3 4.4 6.2 4c2-.3 3.8.7 5.8 3 2-2.3 3.8-3.3 5.8-3 3.2.4 4.8 3.4 3.6 6.6C19.4 15.4 12 20 12 20z"/>',
+    trayInbox: '<path d="M3.4 12.6h5.2l1.8 3h3.2l1.8-3h5.2"/><path d="M5.6 5h12.8l1.6 7.6v7.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 20V12.6z"/>'
   };
   function ico(name, size, extra) {
     var d = ICON_PATHS[name];
@@ -1081,11 +1089,11 @@
     html += '</div>';
 
     html += '<div class="chips k-r" style="animation-delay:.24s">';
-    html += '<button class="chip" data-action="set-filter" data-id="all" style="' + (state.filter === "all" ? "background:var(--accent);color:var(--on-accent);border-color:transparent;" : "") + '">All <span class="mono">' + tasks.length + '</span></button>';
+    html += '<button class="chip" data-action="set-filter" data-id="all" style="' + (state.filter === "all" ? "background:var(--accent);color:var(--on-accent);border-color:transparent;" : "") + '">' + ico("grid", 13) + ' All <span class="mono">' + tasks.length + '</span></button>';
     CATEGORIES.forEach(function (cat) {
       var count = tasks.filter(function (t) { return t.categoryId === cat.id; }).length;
       var active = state.filter === cat.id;
-      html += '<button class="chip" data-action="set-filter" data-id="' + cat.id + '" style="' + (active ? "background:" + cat.color + ";color:#0B0D12;border-color:transparent;" : "") + '">' + cat.short + ' <span class="mono">' + count + '</span></button>';
+      html += '<button class="chip" data-action="set-filter" data-id="' + cat.id + '" style="' + (active ? "background:" + cat.color + ";color:#0B0D12;border-color:transparent;" : "") + '">' + ico(cat.iconName, 13) + ' ' + cat.short + ' <span class="mono">' + count + '</span></button>';
     });
     html += '</div>';
 
