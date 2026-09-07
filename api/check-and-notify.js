@@ -141,7 +141,7 @@ module.exports = async (req, res) => {
       // the Sports tab is current the moment the app is opened.
       let refreshed = false;
       try {
-        const fxRaw = await redisCmd(["GET", "flow:fixtures:v3"]);
+        const fxRaw = await redisCmd(["GET", "flow:fixtures:v4"]);
         let fxData = null;
         try { fxData = fxRaw ? JSON.parse(fxRaw) : null; } catch (e) {}
         const sixHours = 6 * 60 * 60 * 1000;
@@ -207,7 +207,7 @@ module.exports = async (req, res) => {
     // ---- fixtures ----
     let fixtureSent = 0;
     try {
-      const fxRaw = await redisCmd(["GET", "flow:fixtures:v3"]);
+      const fxRaw = await redisCmd(["GET", "flow:fixtures:v4"]);
       let fxData = null;
       try { fxData = fxRaw ? JSON.parse(fxRaw) : null; } catch (e) {}
 

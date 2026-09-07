@@ -69,6 +69,7 @@ async function fetchUfcCard(id) {
     if (res.status !== "fulfilled") return;
     const a = res.value || {};
     people[ids[i]] = {
+      id: ids[i],
       name: a.displayName || a.fullName || a.shortName || "",
       flag: pick(a, ["flag", "href"], ""),
       country: pick(a, ["flag", "alt"], ""),
