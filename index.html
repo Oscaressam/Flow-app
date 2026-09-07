@@ -647,6 +647,18 @@
   .rk-num { font-size:11px; color:var(--dim); width:16px; flex-shrink:0; }
   .rk-name { font-size:13px; flex:1; min-width:0; }
   .rk-rec { font-size:10px; color:var(--dim); }
+
+  /* ---------- collapsible table sections ---------- */
+  .tbl-toggle {
+    width:100%; display:flex; align-items:center; justify-content:space-between;
+    background:none; border:none; padding:0; cursor:pointer; font-family:inherit; text-align:left;
+  }
+  .tbl-toggle-main { display:flex; flex-direction:column; gap:4px; }
+  .tbl-toggle-name { font-family:'Bricolage Grotesque','Inter',sans-serif; font-weight:800; font-size:15px; letter-spacing:-.02em; }
+  .tbl-toggle-sub { font-size:10px; color:var(--dim); letter-spacing:.04em; }
+  .tbl-chev { font-size:10px; color:var(--dim); flex-shrink:0; padding-left:12px; }
+  .tbl-body { margin-top:14px; padding-top:2px; border-top:1px solid var(--hairline); animation:kRise .32s cubic-bezier(.16,1,.3,1); }
+  .tbl-body .tbl-head { padding-top:9px; }
 </style>
 </head>
 <body>
@@ -887,7 +899,8 @@
     fixtureDetail: {},
     sportsView: null,   // null | 'schedule' | 'table' | 'rankings'
     tableData: null,    // null (not fetched) | 'loading' | {rows,...} | {error}
-    rankingsData: null,     // id -> detail payload, or 'loading' / 'error'
+    rankingsData: null,
+    tableOpen: {},   // competition name -> bool, closed by default     // id -> detail payload, or 'loading' / 'error'
     filter: "all",
     inputValue: "",
     editState: { type: null, id: null },
@@ -1988,6 +2001,13 @@
     return html;
   }
 
+  function ordinal(n) {
+    n = parseInt(n, 10);
+    if (isNaN(n)) return n;
+    var s = ["th", "st", "nd", "rd"], v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
+
   function renderTable() {
     var html = '<button class="sport-back" data-action="sports-back">' + ico("reset", 14) + '<span>Back</span></button>';
 
@@ -2001,24 +2021,41 @@
       return html + '<div class="card"><p class="empty" style="padding:10px 0;">Couldn\'t load the tables right now.</p></div>';
     }
 
+    html += '<div class="k-sh" style="margin-top:2px"><h2>Standings</h2><span>TAP TO EXPAND</span></div>';
+
     d.competitions.forEach(function (comp, ci) {
-      html += '<div class="k-sh" style="margin-top:' + (ci === 0 ? "2px" : "22px") + '">' +
-        '<h2>' + escapeHtml(comp.name) + '</h2><span>' + comp.rows.length + ' TEAMS</span></div>';
-      html += '<div class="card"><div class="tbl-head mono">' +
-        '<span></span><span></span><span class="tbl-name">Team</span><span>P</span><span>GD</span><span>Pts</span></div>';
-      comp.rows.forEach(function (r) {
-        var mine = r.name === "Liverpool";
-        html += '<div class="tbl-row' + (mine ? " mine" : "") + '">' +
-          '<span class="tbl-rank mono">' + r.rank + '</span>' +
-          (r.crest
-            ? '<img class="tbl-crest" src="' + escapeHtml(r.crest) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />'
-            : '<span class="tbl-crest"></span>') +
-          '<span class="tbl-name">' + escapeHtml(r.name) + '</span>' +
-          '<span class="tbl-p mono">' + escapeHtml(r.played) + '</span>' +
-          '<span class="tbl-gd mono">' + escapeHtml(r.gd) + '</span>' +
-          '<span class="tbl-pts mono">' + escapeHtml(r.points) + '</span>' +
-        '</div>';
-      });
+      var mineRow = comp.rows.filter(function (r) { return r.name === "Liverpool"; })[0];
+      var open = !!state.tableOpen[comp.name];
+
+      html += '<div class="card k-r" style="animation-delay:.' + (10 + ci * 6) + 's">';
+      html += '<button class="tbl-toggle" data-action="toggle-table" data-name="' + escapeHtml(comp.name) + '">' +
+        '<span class="tbl-toggle-main">' +
+          '<span class="tbl-toggle-name">' + escapeHtml(comp.name) + '</span>' +
+          '<span class="tbl-toggle-sub mono">' +
+            (mineRow ? "Liverpool " + ordinal(mineRow.rank) + "  ·  " + escapeHtml(mineRow.points) + " pts" : comp.rows.length + " teams") +
+          '</span>' +
+        '</span>' +
+        '<span class="tbl-chev">' + (open ? "&#9650;" : "&#9660;") + '</span>' +
+      '</button>';
+
+      if (open) {
+        html += '<div class="tbl-body"><div class="tbl-head mono">' +
+          '<span></span><span></span><span class="tbl-name">Team</span><span>P</span><span>GD</span><span>Pts</span></div>';
+        comp.rows.forEach(function (r) {
+          var mine = r.name === "Liverpool";
+          html += '<div class="tbl-row' + (mine ? " mine" : "") + '">' +
+            '<span class="tbl-rank mono">' + r.rank + '</span>' +
+            (r.crest
+              ? '<img class="tbl-crest" src="' + escapeHtml(r.crest) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />'
+              : '<span class="tbl-crest"></span>') +
+            '<span class="tbl-name">' + escapeHtml(r.name) + '</span>' +
+            '<span class="tbl-p mono">' + escapeHtml(r.played) + '</span>' +
+            '<span class="tbl-gd mono">' + escapeHtml(r.gd) + '</span>' +
+            '<span class="tbl-pts mono">' + escapeHtml(r.points) + '</span>' +
+          '</div>';
+        });
+        html += '</div>';
+      }
       html += '</div>';
     });
     return html;
@@ -2335,6 +2372,11 @@
       goForward({ sportsView: v });
       if (v === "table" && state.tableData === null) fetchTableData();
       if (v === "rankings" && state.rankingsData === null) fetchRankingsData();
+    }
+    else if (action === "toggle-table") {
+      var tn = btn.getAttribute("data-name");
+      state.tableOpen[tn] = !state.tableOpen[tn];
+      render();
     }
     else if (action === "sports-back") { window.history.back(); }
     else if (action === "toggle-routine") {
