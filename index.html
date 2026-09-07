@@ -218,16 +218,10 @@
   .hero-brain {
     position:absolute; right:-22px; top:2px; width:200px; opacity:.94; pointer-events:none;
     animation:kFloat 9s ease-in-out infinite;
-    filter:drop-shadow(0 0 26px var(--accent-glow));
+    filter:drop-shadow(0 0 30px var(--accent-glow)) drop-shadow(0 10px 20px rgba(0,0,0,.35));
   }
   [data-theme="light"] .hero-brain { filter:drop-shadow(0 6px 20px rgba(180,120,0,.30)); }
   @keyframes kFloat { 0%,100%{transform:translateY(0) rotate(0)} 50%{transform:translateY(-10px) rotate(-1.5deg)} }
-  .hero-halo {
-    position:absolute; right:20px; top:30px; width:104px; height:104px; border-radius:50%;
-    background:radial-gradient(circle, var(--accent-glow), transparent 68%);
-    animation:kPulse 3.6s ease-in-out infinite; pointer-events:none;
-  }
-  @keyframes kPulse { 0%,100%{transform:scale(1);opacity:.55} 50%{transform:scale(1.18);opacity:.95} }
   .hero-dots { position:absolute; inset:0; pointer-events:none; }
   .hero-dots i {
     position:absolute; border-radius:50%; background:var(--accent); display:block;
@@ -1215,7 +1209,6 @@
     else sub = "due today, all still on time";
 
     return '<div class="hero">' +
-      '<div class="hero-halo"></div>' +
       '<img class="hero-brain" src="brain-hero.png" alt="" />' +
       '<div class="hero-dots">' +
         '<i style="width:7px;height:7px;right:32px;top:22px;animation-delay:0s"></i>' +
