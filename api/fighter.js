@@ -15,7 +15,7 @@
 // if it comes back empty in production, that endpoint's real shape is the
 // first thing to check against the actual response.
 
-const CACHE_PREFIX = "flow:fighter:v1:";
+const CACHE_PREFIX = "flow:fighter:v2:"; // v2: switched from the 400-erroring /events guess to gamelog
 const TTL_SECONDS = 60 * 60 * 12;
 
 async function redisCmd(cmd) {
@@ -71,35 +71,82 @@ function extractStats(statPayload) {
 }
 
 async function findLastFight(athleteId) {
-  // Athlete event history — shape unverified, so try the conventions ESPN
-  // uses elsewhere: a paginated `items` list, optionally needing one more
-  // hop per item if entries are bare $refs rather than embedded objects.
+  // First attempt (/v2/sports/mma/athletes/{id}/events) returned a live 400 —
+  // confirmed wrong, not just unverified. Trying the common v3 "gamelog"
+  // pattern instead: confirmed to exist for other sports (an NFL gamelog URL
+  // in this exact shape shows up in ESPN API bug reports), but MMA's actual
+  // response shape is still unconfirmed — parsed defensively across a few
+  // plausible layouts rather than assumed.
   const list = await getJson(
-    "https://sports.core.api.espn.com/v2/sports/mma/athletes/" + athleteId + "/events?limit=20"
+    "https://site.web.api.espn.com/apis/common/v3/sports/mma/ufc/athletes/" + athleteId + "/gamelog"
   );
-  const items = list.items || list.events || [];
-  if (!items.length) throw new Error("no event history returned");
 
-  // Resolve each to a real event object if it's a bare ref
+  // try several plausible shapes for where the per-fight entries live
+  let rawEvents = [];
+  if (Array.isArray(list.events)) {
+    rawEvents = list.events;
+  } else if (list.events && typeof list.events === "object") {
+    rawEvents = Object.values(list.events);
+  } else if (Array.isArray(list.seasonTypes)) {
+    list.seasonTypes.forEach(function (st) {
+      (st.categories || []).forEach(function (cat) {
+        (cat.events || []).forEach(function (e) { rawEvents.push(e); });
+      });
+    });
+  }
+  if (!rawEvents.length) throw new Error("no gamelog entries found");
+
+  // Resolve each to a real event object if it's a bare ref; otherwise use
+  // whatever date-bearing fields are already embedded.
   const resolved = await Promise.allSettled(
-    items.map(function (it) {
-      return it && it.date ? Promise.resolve(it) : getJson(fixRef(it.$ref || it));
+    rawEvents.map(function (it) {
+      if (it && (it.date || it.eventDate)) return Promise.resolve(it);
+      const ref = it && (it.$ref || (it.event && it.event.$ref));
+      return ref ? getJson(fixRef(ref)) : Promise.reject(new Error("no ref"));
     })
   );
   const events = resolved
     .filter(function (r) { return r.status === "fulfilled"; })
     .map(function (r) { return r.value; })
-    .filter(function (e) { return e && e.date && new Date(e.date).getTime() < Date.now(); })
-    .sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
+    .filter(function (e) {
+      const d = e && (e.date || e.eventDate);
+      return d && new Date(d).getTime() < Date.now();
+    })
+    .sort(function (a, b) {
+      return new Date(b.date || b.eventDate) - new Date(a.date || a.eventDate);
+    });
 
-  if (!events.length) throw new Error("no past events found");
+  if (!events.length) throw new Error("gamelog returned no past events");
   return events[0];
 }
 
 async function fetchLastFightStats(athleteId) {
   const event = await findLastFight(athleteId);
 
-  const comps = Array.isArray(event.competitions) ? event.competitions : [];
+  // Gamelog rows on other sports sometimes carry the opponent/result/stats
+  // directly on the row, with no need for the deeper competitions chain.
+  // Try that first since it's cheaper and more likely correct for a
+  // purpose-built "gamelog" resource; only fall back to walking
+  // competitions -> competitors -> statistics if this looks like a bare
+  // core-API event object instead.
+  if (event.opponent || event.stats) {
+    return {
+      eventName: event.name || event.eventName || "",
+      date: event.date || event.eventDate || "",
+      won: event.result === "W" || event.won === true,
+      opponent: (event.opponent && (event.opponent.displayName || event.opponent.name)) || event.opponent || "",
+      stats: Array.isArray(event.stats)
+        ? event.stats.map(function (s) { return { key: s.name || s.abbreviation, label: s.displayName || s.label || s.name, value: s.value }; })
+            .filter(function (s) { return s.value !== undefined; })
+        : [],
+    };
+  }
+
+  if (!Array.isArray(event.competitions)) {
+    throw new Error("gamelog row had neither embedded stats nor a competitions list");
+  }
+
+  const comps = event.competitions;
   let mine = null, oppRef = null, competitionId = null;
   for (const c of comps) {
     const cs = c.competitors || [];
