@@ -623,6 +623,30 @@
     display:flex; align-items:center; justify-content:center; line-height:1;
     box-shadow:0 0 0 2px var(--bg);
   }
+
+  /* ---------- sports submenu icon tiles ---------- */
+  .st-icon { width:62px; height:62px; display:flex; align-items:center; justify-content:center; position:relative; z-index:1; }
+
+  /* ---------- Premier League table ---------- */
+  .tbl-head, .tbl-row {
+    display:grid; grid-template-columns:20px 22px 1fr 24px 30px 32px;
+    align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--hairline);
+  }
+  .tbl-head { font-size:8px; letter-spacing:.12em; color:var(--dim); text-transform:uppercase; padding-bottom:9px; }
+  .tbl-row:last-child { border-bottom:none; }
+  .tbl-row.mine { background:var(--accent-soft); margin:0 -12px; padding:8px 12px; border-radius:10px; border-bottom-color:transparent; }
+  .tbl-rank { font-size:10.5px; color:var(--dim); }
+  .tbl-crest { width:18px; height:18px; object-fit:contain; }
+  .tbl-name { font-size:12.5px; font-weight:600; letter-spacing:-.01em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tbl-p, .tbl-gd, .tbl-pts { font-size:11px; text-align:right; color:var(--muted); }
+  .tbl-pts { color:var(--text); font-weight:700; }
+
+  /* ---------- UFC rankings ---------- */
+  .rk-row { display:flex; align-items:baseline; gap:10px; padding:7px 0; border-bottom:1px solid var(--hairline); }
+  .rk-row:last-child { border-bottom:none; }
+  .rk-num { font-size:11px; color:var(--dim); width:16px; flex-shrink:0; }
+  .rk-name { font-size:13px; flex:1; min-width:0; }
+  .rk-rec { font-size:10px; color:var(--dim); }
 </style>
 </head>
 <body>
@@ -860,7 +884,10 @@
     routines: load(STORAGE_ROUTINES) || DEFAULT_ROUTINES(),
     sportsFilter: null,   // null = hub, else 'liverpool' | 'ufc'
     openFixtureId: null,
-    fixtureDetail: {},     // id -> detail payload, or 'loading' / 'error'
+    fixtureDetail: {},
+    sportsView: null,   // null | 'schedule' | 'table' | 'rankings'
+    tableData: null,    // null (not fetched) | 'loading' | {rows,...} | {error}
+    rankingsData: null,     // id -> detail payload, or 'loading' / 'error'
     filter: "all",
     inputValue: "",
     editState: { type: null, id: null },
@@ -1716,12 +1743,13 @@
   }
 
   function toggleFixtureDetail(id) {
-    if (state.openFixtureId === id) { state.openFixtureId = null; render(); return; }
-    state.openFixtureId = id;
+    if (state.openFixtureId === id) { window.history.back(); return; }
     var f = (state.fixtures || []).filter(function (x) { return x.id === id; })[0];
-    if (!f) { render(); return; }
-    if (state.fixtureDetail[id] && state.fixtureDetail[id] !== "loading") { render(); return; }
-    fetchFixtureDetail(f);
+    if (!f) return;
+    goForward({ openFixtureId: id });
+    if (!(state.fixtureDetail[id] && state.fixtureDetail[id] !== "loading")) {
+      fetchFixtureDetail(f);
+    }
   }
 
   function renderDetailPanel(f) {
@@ -1821,6 +1849,49 @@
   }
 
   // --- hub: two big tappable crests ---
+
+  // ---------- Sports back-navigation ----------
+  // Scoped deliberately to the Sports drill-down (hub -> icon menu -> stat
+  // view -> fixture detail), not every tab switch — pushing a history entry
+  // on every category chip tap would make ordinary tab-hopping tedious to
+  // swipe back through. Forward moves push a snapshot + history.pushState;
+  // any "back" action (explicit button, re-tapping an open row, or the
+  // swipe/hardware gesture) pops one snapshot via the same popstate handler,
+  // so the two can never drift out of sync.
+  var navStack = [];
+  function navSnapshot() {
+    return {
+      filter: state.filter, sportsFilter: state.sportsFilter,
+      sportsView: state.sportsView, openFixtureId: state.openFixtureId
+    };
+  }
+  function goForward(patch) {
+    navStack.push(navSnapshot());
+    try { history.pushState({ navDepth: navStack.length }, ""); } catch (e) {}
+    Object.assign(state, patch);
+    render();
+  }
+  window.addEventListener("popstate", function () {
+    if (!navStack.length) return;
+    Object.assign(state, navStack.pop());
+    render();
+  });
+
+  function fetchTableData() {
+    state.tableData = "loading"; render();
+    fetch(API_BASE + "/api/stats?kind=table")
+      .then(function (r) { return r.json(); })
+      .then(function (d) { state.tableData = d.error ? { error: d.error } : d; render(); })
+      .catch(function () { state.tableData = { error: "offline" }; render(); });
+  }
+  function fetchRankingsData() {
+    state.rankingsData = "loading"; render();
+    fetch(API_BASE + "/api/stats?kind=rankings")
+      .then(function (r) { return r.json(); })
+      .then(function (d) { state.rankingsData = d.error ? { error: d.error } : d; render(); })
+      .catch(function () { state.rankingsData = { error: "offline" }; render(); });
+  }
+
   function renderSportsHub() {
     var html = '<div class="sport-tiles k-r" style="animation-delay:.12s">';
 
@@ -1887,6 +1958,93 @@
     return html;
   }
 
+
+  // --- icon menu: what the user meant by "other icons to expand" ---
+  function renderSportsSubmenu(kind) {
+    var src = SPORT_SOURCES.filter(function (x) { return x.kind === kind; })[0];
+    if (!src) return renderSportsHub();
+
+    var options = kind === "ufc"
+      ? [{ view: "schedule", label: "Schedule", sub: "Every event", icon: "clock" },
+         { view: "rankings", label: "Rankings", sub: "By division", icon: "layers" }]
+      : [{ view: "schedule", label: "Schedule", sub: "Full season", icon: "clock" },
+         { view: "table", label: "Table", sub: "Premier League", icon: "layers" }];
+
+    var html = '<button class="sport-back" data-action="sports-back">' + ico("reset", 14) + '<span>Back</span></button>';
+    html += '<div class="sport-head k-r" style="animation-delay:.06s;--tile-accent:' + src.accent + '">' +
+      '<img class="sh-logo" src="' + src.logo + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />' +
+      '<div><div class="sh-title">' + src.label + '</div><div class="sh-sub mono">Choose a view</div></div></div>';
+
+    html += '<div class="sport-tiles k-r" style="animation-delay:.14s">';
+    options.forEach(function (o) {
+      html += '<button class="sport-tile" data-action="sports-view" data-view="' + o.view + '" style="--tile-accent:' + src.accent + '">' +
+        '<span class="st-glow"></span>' +
+        '<span class="st-icon" style="color:' + src.accent + '">' + ico(o.icon, 28) + '</span>' +
+        '<span class="st-label">' + o.label + '</span>' +
+        '<span class="st-sub mono">' + o.sub + '</span>' +
+      '</button>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function renderTable() {
+    var html = '<button class="sport-back" data-action="sports-back">' + ico("reset", 14) + '<span>Back</span></button>';
+    html += '<div class="k-sh" style="margin-top:2px"><h2>Premier League</h2><span>LIVE TABLE</span></div>';
+
+    var d = state.tableData;
+    if (d === null || d === "loading") {
+      return html + '<div class="card"><p class="empty" style="padding:10px 0;">Loading table…</p></div>';
+    }
+    if (d.error || !d.rows || !d.rows.length) {
+      return html + '<div class="card"><p class="empty" style="padding:10px 0;">Couldn\'t load the table right now.</p></div>';
+    }
+
+    html += '<div class="card"><div class="tbl-head mono">' +
+      '<span></span><span></span><span class="tbl-name">Team</span><span>P</span><span>GD</span><span>Pts</span></div>';
+    d.rows.forEach(function (r) {
+      var mine = r.name === "Liverpool";
+      html += '<div class="tbl-row' + (mine ? " mine" : "") + '">' +
+        '<span class="tbl-rank mono">' + r.rank + '</span>' +
+        (r.crest
+          ? '<img class="tbl-crest" src="' + escapeHtml(r.crest) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />'
+          : '<span class="tbl-crest"></span>') +
+        '<span class="tbl-name">' + escapeHtml(r.name) + '</span>' +
+        '<span class="tbl-p mono">' + escapeHtml(r.played) + '</span>' +
+        '<span class="tbl-gd mono">' + escapeHtml(r.gd) + '</span>' +
+        '<span class="tbl-pts mono">' + escapeHtml(r.points) + '</span>' +
+      '</div>';
+    });
+    return html + '</div>';
+  }
+
+  function renderRankings() {
+    var html = '<button class="sport-back" data-action="sports-back">' + ico("reset", 14) + '<span>Back</span></button>';
+    html += '<div class="k-sh" style="margin-top:2px"><h2>Rankings</h2><span>BY DIVISION</span></div>';
+
+    var d = state.rankingsData;
+    if (d === null || d === "loading") {
+      return html + '<div class="card"><p class="empty" style="padding:10px 0;">Loading rankings…</p></div>';
+    }
+    if (d.error || !d.divisions || !d.divisions.length) {
+      return html + '<div class="card"><p class="empty" style="padding:10px 0;">' +
+        'Rankings aren\'t available right now — this is an unofficial endpoint and ESPN may have changed it.</p></div>';
+    }
+
+    d.divisions.forEach(function (div) {
+      html += '<div class="card"><div class="eyebrow">' + escapeHtml(div.name) + '</div>';
+      div.fighters.forEach(function (f) {
+        html += '<div class="rk-row">' +
+          '<span class="rk-num mono">' + (f.rank || "–") + '</span>' +
+          '<span class="rk-name">' + escapeHtml(f.name) + '</span>' +
+          (f.record ? '<span class="rk-rec mono">' + escapeHtml(f.record) + '</span>' : '') +
+        '</div>';
+      });
+      html += '</div>';
+    });
+    return html;
+  }
+
   // --- drill-in: one source's full schedule, grouped by month ---
   function renderSportsSchedule(kind) {
     var src = SPORT_SOURCES.filter(function (x) { return x.kind === kind; })[0];
@@ -1895,7 +2053,7 @@
     var mine = upcomingFixtures(kind);
 
     var html = '<button class="sport-back" data-action="sports-back">' +
-        ico("reset", 14) + '<span>All sports</span></button>';
+        ico("reset", 14) + '<span>Back</span></button>';
 
     html += '<div class="sport-head k-r" style="animation-delay:.06s;--tile-accent:' + src.accent + '">' +
       '<img class="sh-logo" src="' + src.logo + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />' +
@@ -1955,7 +2113,11 @@
   }
 
   function renderSportsView() {
-    return state.sportsFilter ? renderSportsSchedule(state.sportsFilter) : renderSportsHub();
+    if (!state.sportsFilter) return renderSportsHub();
+    if (!state.sportsView) return renderSportsSubmenu(state.sportsFilter);
+    if (state.sportsView === "table") return renderTable();
+    if (state.sportsView === "rankings") return renderRankings();
+    return renderSportsSchedule(state.sportsFilter);
   }
 
 
@@ -2158,8 +2320,16 @@
       persistTasks(); render();
     }
     else if (action === "fixture-detail") { toggleFixtureDetail(id); }
-    else if (action === "sports-open") { state.sportsFilter = btn.getAttribute("data-kind"); render(); }
-    else if (action === "sports-back") { state.sportsFilter = null; render(); }
+    else if (action === "sports-open") {
+      goForward({ sportsFilter: btn.getAttribute("data-kind"), sportsView: null });
+    }
+    else if (action === "sports-view") {
+      var v = btn.getAttribute("data-view");
+      goForward({ sportsView: v });
+      if (v === "table" && state.tableData === null) fetchTableData();
+      if (v === "rankings" && state.rankingsData === null) fetchRankingsData();
+    }
+    else if (action === "sports-back") { window.history.back(); }
     else if (action === "toggle-routine") {
       state.routines = state.routines.map(function (r) {
         return r.id === id ? Object.assign({}, r, { enabled: r.enabled === false }) : r;

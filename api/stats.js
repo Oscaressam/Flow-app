@@ -1,0 +1,135 @@
+// League-wide stats, independent of any single fixture: the Premier League
+// table and UFC divisional rankings. Cached in Upstash for 6h.
+//
+// Standings endpoint is verified live (2026-09-07): /apis/v2/.../standings
+// returns the full 20-team table. Rankings is NOT verified the same way —
+// third-party tools reference it consistently but I couldn't get a direct
+// fetch of the raw response during development, so it's wired defensively:
+// if it 404s or its shape doesn't match, the client gets a clean
+// "unavailable" message instead of breaking.
+
+const CACHE_PREFIX = "flow:stats:v1:";
+const TTL_SECONDS = 60 * 60 * 6;
+
+async function redisCmd(cmd) {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify(cmd),
+  });
+  return (await r.json()).result;
+}
+
+async function getJson(url) {
+  const r = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!r.ok) throw new Error(url.split("?")[0] + " -> " + r.status);
+  return r.json();
+}
+
+function pick(obj, path, fallback) {
+  let cur = obj;
+  for (const key of path) {
+    if (cur === null || cur === undefined) return fallback;
+    cur = cur[key];
+  }
+  return cur === undefined || cur === null ? fallback : cur;
+}
+
+function statVal(stats, name) {
+  const s = (stats || []).find(function (x) { return x.name === name; });
+  return s ? s.displayValue : "";
+}
+
+// ---------------- Premier League table ----------------
+async function fetchTable() {
+  const data = await getJson("https://site.api.espn.com/apis/v2/sports/soccer/eng.1/standings");
+  const entries = pick(data, ["children", 0, "standings", "entries"], []) || [];
+
+  const rows = entries.map(function (e) {
+    const team = e.team || {};
+    return {
+      teamId: String(team.id || ""),
+      name: team.shortDisplayName || team.displayName || "",
+      crest: pick(team, ["logos", 0, "href"], ""),
+      rank: parseInt(statVal(e.stats, "rank"), 10) || 0,
+      played: statVal(e.stats, "gamesPlayed"),
+      won: statVal(e.stats, "wins"),
+      drawn: statVal(e.stats, "ties"),
+      lost: statVal(e.stats, "losses"),
+      gd: statVal(e.stats, "pointDifferential"),
+      points: statVal(e.stats, "points"),
+      note: pick(e, ["note", "description"], ""),
+      noteColor: pick(e, ["note", "color"], ""),
+    };
+  }).sort(function (a, b) { return a.rank - b.rank; });
+
+  return { rows: rows, seasonName: pick(data, ["children", 0, "name"], "") };
+}
+
+// ---------------- UFC rankings ----------------
+const WEIGHT_CLASSES = [
+  "Men's Pound-for-Pound", "Heavyweight", "Light Heavyweight", "Middleweight",
+  "Welterweight", "Lightweight", "Featherweight", "Bantamweight", "Flyweight",
+  "Women's Pound-for-Pound", "Women's Bantamweight", "Women's Flyweight", "Women's Strawweight",
+];
+
+function parseRankings(data) {
+  // Shape is unconfirmed, so try a few plausible layouts rather than
+  // assuming one. Each division may live under `rankings`, `divisions`,
+  // or directly as a top-level array.
+  const groups = data.rankings || data.divisions || (Array.isArray(data) ? data : []);
+  if (!Array.isArray(groups) || groups.length === 0) return null;
+
+  const divisions = groups.map(function (g) {
+    const name = g.name || g.displayName || g.weightClass || "";
+    const list = g.ranks || g.athletes || g.rankings || [];
+    const fighters = list.slice(0, 16).map(function (r) {
+      const a = r.athlete || r;
+      var rec = pick(a, ["record", "summary"], "") || r.record || "";
+      if (rec && typeof rec === "object") rec = rec.summary || "";
+      return {
+        rank: r.rank || r.current || 0,
+        name: a.displayName || a.fullName || a.name || "",
+        record: rec,
+        country: pick(a, ["flag", "alt"], ""),
+      };
+    }).filter(function (f) { return f.name; });
+    return { name: name, fighters: fighters };
+  }).filter(function (d) { return d.name && d.fighters.length; });
+
+  return divisions.length ? divisions : null;
+}
+
+async function fetchRankings() {
+  const data = await getJson("https://site.api.espn.com/apis/site/v2/sports/mma/ufc/rankings");
+  const divisions = parseRankings(data);
+  if (!divisions) throw new Error("unrecognized rankings shape");
+  return { divisions: divisions };
+}
+
+module.exports = async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const kind = req.query.kind === "rankings" ? "rankings" : "table";
+  const cacheKey = CACHE_PREFIX + kind;
+
+  try {
+    const cached = await redisCmd(["GET", cacheKey]);
+    if (cached && req.query.force !== "1") {
+      res.status(200).json({ ...JSON.parse(cached), cached: true });
+      return;
+    }
+  } catch (e) {}
+
+  let payload = { kind: kind };
+  try {
+    payload = Object.assign(payload, kind === "rankings" ? await fetchRankings() : await fetchTable());
+  } catch (err) {
+    payload.error = String(err.message || err);
+  }
+
+  payload.fetchedAt = Date.now();
+  try { await redisCmd(["SET", cacheKey, JSON.stringify(payload), "EX", TTL_SECONDS]); } catch (e) {}
+  res.status(200).json({ ...payload, cached: false });
+};
