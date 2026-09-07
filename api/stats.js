@@ -102,7 +102,23 @@ function parseRankings(data) {
   return divisions.length ? divisions : null;
 }
 
+// DISABLED (verified live 2026-09-07): the endpoint responds 200 with valid
+// JSON, but the content is years stale — it still listed Kamaru Usman,
+// Israel Adesanya, and Francis Ngannou as reigning champions, all of whom
+// lost their belts (or left the UFC) back in 2022/2023. Every fighter's
+// record/country also came back empty. This isn't a shape mismatch to fix;
+// ESPN appears to have stopped maintaining MMA rankings after losing UFC
+// broadcast rights. Showing it would be actively misleading, so it's kept
+// off rather than parsed. fetchRankingsRaw() is left intact in case ESPN
+// ever refreshes this data — check it again before re-enabling.
 async function fetchRankings() {
+  throw new Error(
+    "UFC rankings are disabled: ESPN's data here is several years out of date " +
+    "(still lists Usman/Adesanya/Ngannou as champions) rather than merely broken."
+  );
+}
+
+async function fetchRankingsRaw() {
   const data = await getJson("https://site.api.espn.com/apis/site/v2/sports/mma/ufc/rankings");
   const divisions = parseRankings(data);
   if (!divisions) throw new Error("unrecognized rankings shape");

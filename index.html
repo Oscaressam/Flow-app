@@ -2028,7 +2028,8 @@
     }
     if (d.error || !d.divisions || !d.divisions.length) {
       return html + '<div class="card"><p class="empty" style="padding:10px 0;">' +
-        'Rankings aren\'t available right now — this is an unofficial endpoint and ESPN may have changed it.</p></div>';
+        'UFC rankings are turned off on purpose — the only free source returns data that\'s years out of date ' +
+        '(still lists champions from 2022), so showing it would be more misleading than showing nothing.</p></div>';
     }
 
     d.divisions.forEach(function (div) {
