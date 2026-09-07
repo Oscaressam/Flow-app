@@ -8,7 +8,7 @@
 // if it 404s or its shape doesn't match, the client gets a clean
 // "unavailable" message instead of breaking.
 
-const CACHE_PREFIX = "flow:stats:v1:";
+const CACHE_PREFIX = "flow:stats:v3:"; // v3: table now returns multiple competitions, not one flat row list
 const TTL_SECONDS = 60 * 60 * 6;
 
 async function redisCmd(cmd) {
@@ -42,12 +42,21 @@ function statVal(stats, name) {
   return s ? s.displayValue : "";
 }
 
-// ---------------- Premier League table ----------------
-async function fetchTable() {
-  const data = await getJson("https://site.api.espn.com/apis/v2/sports/soccer/eng.1/standings");
+// ---------------- League tables ----------------
+// Liverpool play two competitions with an actual standings table: the
+// Premier League (eng.1) and the Champions League's 36-team league phase
+// (uefa.champions, since the 2024-25 format change). Both fetched the same
+// way and shown as two sections in one Table view.
+const TABLE_COMPETITIONS = [
+  { slug: "eng.1", label: "Premier League" },
+  { slug: "uefa.champions", label: "Champions League" },
+];
+
+async function fetchOneTable(slug) {
+  const data = await getJson("https://site.api.espn.com/apis/v2/sports/soccer/" + slug + "/standings");
   const entries = pick(data, ["children", 0, "standings", "entries"], []) || [];
 
-  const rows = entries.map(function (e) {
+  return entries.map(function (e) {
     const team = e.team || {};
     return {
       teamId: String(team.id || ""),
@@ -64,8 +73,23 @@ async function fetchTable() {
       noteColor: pick(e, ["note", "color"], ""),
     };
   }).sort(function (a, b) { return a.rank - b.rank; });
+}
 
-  return { rows: rows, seasonName: pick(data, ["children", 0, "name"], "") };
+async function fetchTable() {
+  const results = await Promise.allSettled(
+    TABLE_COMPETITIONS.map(function (c) { return fetchOneTable(c.slug); })
+  );
+  const competitions = TABLE_COMPETITIONS
+    .map(function (c, i) {
+      const r = results[i];
+      return r.status === "fulfilled" && r.value.length
+        ? { name: c.label, rows: r.value }
+        : null;
+    })
+    .filter(Boolean);
+
+  if (!competitions.length) throw new Error("no tables available");
+  return { competitions: competitions };
 }
 
 // ---------------- UFC rankings ----------------
