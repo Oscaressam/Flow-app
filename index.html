@@ -211,7 +211,10 @@
   .k-r { opacity:0; animation:kRise .6s cubic-bezier(.16,1,.3,1) forwards; }
 
   /* ---- HERO ---- */
-  .hero { position:relative; height:178px; margin:2px -4px 6px; overflow:hidden; }
+  .hero { position:relative; height:178px; margin:2px -4px 6px; overflow:visible; }
+  /* clip only what genuinely needs it (hero-dots), so the halo/brain can
+     bleed softly into the page background instead of being sliced by a
+     hard container edge, which read as a visible box corner */
   .hero-brain {
     position:absolute; right:-22px; top:2px; width:200px; opacity:.94; pointer-events:none;
     animation:kFloat 9s ease-in-out infinite;
