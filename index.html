@@ -650,14 +650,6 @@
   .rk-rec { font-size:10px; color:var(--dim); }
 
   /* ---------- fighter last-fight panel ---------- */
-  .ft-tap { background:none; border:none; cursor:pointer; font-family:inherit; padding:0; text-decoration:underline; text-decoration-color:var(--dim); text-underline-offset:2px; }
-  .fighter-panel { margin-top:12px; padding-top:12px; border-top:1px dashed var(--hairline); animation:kRise .32s cubic-bezier(.16,1,.3,1); }
-  .lf-title { font-size:13px; font-weight:700; letter-spacing:-.01em; margin-top:2px; }
-  .lf-event { font-size:10px; color:var(--dim); margin-top:3px; }
-  .lf-stats { display:flex; flex-wrap:wrap; gap:12px; margin-top:10px; }
-  .lf-stats div { display:flex; flex-direction:column; }
-  .lf-stats b { font-size:16px; font-weight:800; line-height:1; }
-  .lf-stats s { font-size:7.5px; letter-spacing:.1em; color:var(--dim); text-decoration:none; margin-top:3px; }
 
   /* ---------- squad / player stats ---------- */
   .pl-row { border-bottom:1px solid var(--hairline); }
@@ -676,6 +668,18 @@
   .pl-stat-grid div { display:flex; flex-direction:column; }
   .pl-stat-grid b { font-size:17px; font-weight:800; line-height:1; }
   .pl-stat-grid s { font-size:8px; letter-spacing:.12em; color:var(--dim); text-decoration:none; margin-top:3px; }
+
+  /* ---------- UFC news ---------- */
+  .news-row {
+    display:flex; align-items:center; gap:12px; padding:11px 0;
+    border-bottom:1px solid var(--hairline); text-decoration:none; color:inherit;
+  }
+  .news-row:last-child { border-bottom:none; }
+  .news-thumb { width:56px; height:56px; border-radius:10px; object-fit:cover; flex-shrink:0; background:var(--surface-1); }
+  .news-thumb-empty { display:flex; align-items:center; justify-content:center; color:var(--dim); }
+  .news-body { flex:1; min-width:0; }
+  .news-headline { font-size:13px; font-weight:600; letter-spacing:-.01em; line-height:1.3; display:block; }
+  .news-meta { font-size:9px; color:var(--dim); margin-top:5px; display:block; }
 
   /* ---------- collapsible table sections ---------- */
   .tbl-toggle {
@@ -931,9 +935,8 @@
     rankingsData: null,
     tableOpen: {},   // competition name -> bool, closed by default
     squadData: null,
+    newsData: null,
     openPlayerId: null,
-    openFighterId: null,
-    fighterDetail: {},     // id -> detail payload, or 'loading' / 'error'
     filter: "all",
     inputValue: "",
     editState: { type: null, id: null },
@@ -1725,67 +1728,16 @@
   }
 
 
-  function fetchFighterDetail(fighterId) {
-    state.fighterDetail[fighterId] = "loading";
-    render();
-    fetch(API_BASE + "/api/fighter?id=" + encodeURIComponent(fighterId))
-      .then(function (r) { return r.json(); })
-      .then(function (d) { state.fighterDetail[fighterId] = d && !d.error ? d : { error: (d && d.error) || "Unavailable" }; render(); })
-      .catch(function () { state.fighterDetail[fighterId] = { error: "Couldn't load — check your connection" }; render(); });
-  }
-
-  function toggleFighter(id) {
-    if (state.openFighterId === id) { state.openFighterId = null; render(); return; }
-    state.openFighterId = id;
-    if (!state.fighterDetail[id] || state.fighterDetail[id] === "loading") {
-      fetchFighterDetail(id);
-    } else {
-      render();
-    }
-  }
-
-  function renderFighterPanel(fighter) {
-    if (state.openFighterId !== fighter.id) return "";
-    var d = state.fighterDetail[fighter.id];
-
-    if (d === "loading" || !d) {
-      return '<div class="fighter-panel"><p class="detail-note">Loading last fight…</p></div>';
-    }
-    if (d.error) {
-      return '<div class="fighter-panel"><p class="detail-note">' + escapeHtml(d.error) + '</p></div>';
-    }
-
-    var html = '<div class="fighter-panel">';
-    html += '<div class="detail-seg mono">LAST FIGHT' + (d.won !== undefined ? (d.won ? " · WON" : " · LOST") : "") + '</div>';
-    html += '<div class="lf-title">' + escapeHtml(fighter.name) +
-      (d.opponent ? ' vs ' + escapeHtml(d.opponent) : "") + '</div>';
-    if (d.eventName) html += '<div class="lf-event mono">' + escapeHtml(d.eventName) + '</div>';
-
-    if (d.stats && d.stats.length) {
-      html += '<div class="lf-stats">';
-      d.stats.forEach(function (s) {
-        html += '<div><b>' + escapeHtml(s.value) + '</b><s>' + escapeHtml(s.label.toUpperCase()) + '</s></div>';
-      });
-      html += '</div>';
-    } else {
-      html += '<p class="detail-note">Fight happened, but no strike breakdown was published for it.</p>';
-    }
-    return html + '</div>';
-  }
-
   function renderFightCard(f) {
     var c = f.card;
     if (!c || !c.main) return "";
     var m = c.main;
 
     var fighter = function (x, align) {
-      var clickable = !!x.id;
       return '<div class="ft ' + align + '">' +
         (x.flag ? '<img class="ft-flag" src="' + escapeHtml(x.flag) + '" alt="' + escapeHtml(x.country) +
           '" loading="lazy" onerror="this.style.display=\'none\'" />' : '') +
-        (clickable
-          ? '<button class="ft-name ft-tap" data-action="toggle-fighter" data-id="' + escapeHtml(x.id) + '">' + escapeHtml(x.name) + '</button>'
-          : '<div class="ft-name">' + escapeHtml(x.name) + '</div>') +
+        '<div class="ft-name">' + escapeHtml(x.name) + '</div>' +
         (x.record ? '<div class="ft-rec mono">' + escapeHtml(x.record) + '</div>' : '') +
       '</div>';
     };
@@ -1798,9 +1750,6 @@
     '</div>';
 
     if (m.weight) html += '<div class="me-weight mono">' + escapeHtml(m.weight) + ' &middot; main event</div>';
-
-    if (m.a.id) html += renderFighterPanel(m.a);
-    if (m.b.id) html += renderFighterPanel(m.b);
 
     var extras = [];
     if (c.venue) extras.push(c.venue + (c.city ? ", " + c.city : ""));
@@ -1998,6 +1947,43 @@
       .then(function (d) { state.squadData = d.error ? { error: d.error } : d; render(); })
       .catch(function () { state.squadData = { error: "offline" }; render(); });
   }
+  function fetchNewsData() {
+    state.newsData = "loading"; render();
+    fetch(API_BASE + "/api/stats?kind=news")
+      .then(function (r) { return r.json(); })
+      .then(function (d) { state.newsData = d.error ? { error: d.error } : d; render(); })
+      .catch(function () { state.newsData = { error: "offline" }; render(); });
+  }
+
+  function renderNews() {
+    var html = '<button class="sport-back" data-action="sports-back">' + ico("reset", 14) + '<span>Back</span></button>';
+    html += '<div class="k-sh" style="margin-top:2px"><h2>UFC News</h2></div>';
+
+    var d = state.newsData;
+    if (d === null || d === "loading") {
+      return html + '<div class="card"><p class="empty" style="padding:10px 0;">Loading news…</p></div>';
+    }
+    if (d.error || !d.articles || !d.articles.length) {
+      return html + '<div class="card"><p class="empty" style="padding:10px 0;">Couldn\'t load news right now.</p></div>';
+    }
+
+    html += '<div class="card">';
+    d.articles.forEach(function (a, i) {
+      var when = a.published ? new Date(a.published).toLocaleDateString([], { month: "short", day: "numeric" }) : "";
+      html += '<a class="news-row" href="' + escapeHtml(a.link) + '" target="_blank" rel="noopener">' +
+        (a.image
+          ? '<img class="news-thumb" src="' + escapeHtml(a.image) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />'
+          : '<span class="news-thumb news-thumb-empty">' + ico("spark", 16) + '</span>') +
+        '<span class="news-body">' +
+          '<span class="news-headline">' + escapeHtml(a.headline) + '</span>' +
+          '<span class="news-meta mono">' + (when ? when : "") + (a.byline ? "  ·  " + escapeHtml(a.byline) : "") + '</span>' +
+        '</span>' +
+      '</a>';
+      if (i < d.articles.length - 1) html += '';
+    });
+    html += '</div>';
+    return html;
+  }
 
   function renderSportsHub() {
     var html = '<div class="sport-tiles k-r" style="animation-delay:.12s">';
@@ -2073,7 +2059,8 @@
 
     var options = kind === "ufc"
       ? [{ view: "schedule", label: "Schedule", sub: "Every event", icon: "clock" },
-         { view: "rankings", label: "Rankings", sub: "By division", icon: "layers" }]
+         { view: "rankings", label: "Rankings", sub: "By division", icon: "layers" },
+         { view: "news", label: "News", sub: "Latest headlines", icon: "note" }]
       : [{ view: "schedule", label: "Schedule", sub: "Full season", icon: "clock" },
          { view: "table", label: "Table", sub: "Premier League", icon: "layers" },
          { view: "squad", label: "Squad", sub: "Player stats", icon: "dumbbell" }];
@@ -2311,6 +2298,7 @@
     if (state.sportsView === "table") return renderTable();
     if (state.sportsView === "rankings") return renderRankings();
     if (state.sportsView === "squad") return renderSquad();
+    if (state.sportsView === "news") return renderNews();
     return renderSportsSchedule(state.sportsFilter);
   }
 
@@ -2523,8 +2511,8 @@
       if (v === "table" && state.tableData === null) fetchTableData();
       if (v === "rankings" && state.rankingsData === null) fetchRankingsData();
       if (v === "squad" && state.squadData === null) fetchSquadData();
+      if (v === "news" && state.newsData === null) fetchNewsData();
     }
-    else if (action === "toggle-fighter") { toggleFighter(id); }
     else if (action === "toggle-player") {
       state.openPlayerId = state.openPlayerId === id ? null : id;
       render();

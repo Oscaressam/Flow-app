@@ -8,7 +8,7 @@
 // if it 404s or its shape doesn't match, the client gets a clean
 // "unavailable" message instead of breaking.
 
-const CACHE_PREFIX = "flow:stats:v3:"; // v3: table now returns multiple competitions, not one flat row list
+const CACHE_PREFIX = "flow:stats:v4:"; // v3: table now returns multiple competitions, not one flat row list
 const TTL_SECONDS = 60 * 60 * 6;
 
 async function redisCmd(cmd) {
@@ -205,9 +205,31 @@ async function fetchSquad() {
   return { players: players, seasonName: pick(data, ["season", "displayName"], "") };
 }
 
+// ---------------- UFC news ----------------
+// Verified live (2026-09-07): simple flat structure, no multi-hop chains
+// needed. Real current articles confirmed.
+async function fetchNews() {
+  const data = await getJson("https://site.api.espn.com/apis/site/v2/sports/mma/ufc/news");
+  const articles = (data.articles || []).map(function (a) {
+    const img = (a.images || [])[0];
+    return {
+      id: a.id,
+      headline: a.headline || "",
+      description: a.description || "",
+      published: a.published || a.lastModified || "",
+      image: (img && img.url) || "",
+      link: pick(a, ["links", "web", "href"], ""),
+      byline: a.byline || "",
+    };
+  }).filter(function (a) { return a.headline && a.link; });
+
+  if (!articles.length) throw new Error("no articles returned");
+  return { articles: articles.slice(0, 20) };
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  const kind = req.query.kind === "rankings" ? "rankings" : req.query.kind === "squad" ? "squad" : "table";
+  const kind = ["rankings", "squad", "news"].indexOf(req.query.kind) !== -1 ? req.query.kind : "table";
   const cacheKey = CACHE_PREFIX + kind;
 
   try {
@@ -222,6 +244,7 @@ module.exports = async (req, res) => {
   try {
     if (kind === "rankings") payload = Object.assign(payload, await fetchRankings());
     else if (kind === "squad") payload = Object.assign(payload, await fetchSquad());
+    else if (kind === "news") payload = Object.assign(payload, await fetchNews());
     else payload = Object.assign(payload, await fetchTable());
   } catch (err) {
     payload.error = String(err.message || err);
