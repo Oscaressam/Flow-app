@@ -480,7 +480,8 @@
   .uc-n i { color:var(--dim); font-style:normal; font-size:9px; }
 
   /* ---------- sports hub tiles ---------- */
-  .sport-tiles { display:flex; gap:12px; margin-bottom:16px; }
+  .sport-tiles { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
+  .sport-tiles .sport-tile { flex:1 1 calc(50% - 6px); min-width:130px; }
   .sport-tile {
     flex:1; position:relative; overflow:hidden; cursor:pointer; font-family:inherit;
     display:flex; flex-direction:column; align-items:center; gap:4px;
@@ -647,6 +648,24 @@
   .rk-num { font-size:11px; color:var(--dim); width:16px; flex-shrink:0; }
   .rk-name { font-size:13px; flex:1; min-width:0; }
   .rk-rec { font-size:10px; color:var(--dim); }
+
+  /* ---------- squad / player stats ---------- */
+  .pl-row { border-bottom:1px solid var(--hairline); }
+  .pl-row:last-child { border-bottom:none; }
+  .pl-tap {
+    width:100%; display:flex; align-items:center; gap:10px; padding:10px 0;
+    background:none; border:none; cursor:pointer; font-family:inherit; text-align:left;
+  }
+  .pl-flag { width:22px; height:15px; object-fit:cover; border-radius:2px; flex-shrink:0; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+  .pl-main { flex:1; min-width:0; }
+  .pl-name { font-size:13.5px; font-weight:600; letter-spacing:-.01em; display:block; }
+  .pl-sub { font-size:9.5px; color:var(--dim); margin-top:2px; display:block; }
+  .pl-stat { font-size:11px; color:var(--muted); flex-shrink:0; }
+  .pl-detail { padding:2px 0 12px 32px; animation:kRise .3s cubic-bezier(.16,1,.3,1); }
+  .pl-stat-grid { display:flex; flex-wrap:wrap; gap:14px; }
+  .pl-stat-grid div { display:flex; flex-direction:column; }
+  .pl-stat-grid b { font-size:17px; font-weight:800; line-height:1; }
+  .pl-stat-grid s { font-size:8px; letter-spacing:.12em; color:var(--dim); text-decoration:none; margin-top:3px; }
 
   /* ---------- collapsible table sections ---------- */
   .tbl-toggle {
@@ -900,7 +919,9 @@
     sportsView: null,   // null | 'schedule' | 'table' | 'rankings'
     tableData: null,    // null (not fetched) | 'loading' | {rows,...} | {error}
     rankingsData: null,
-    tableOpen: {},   // competition name -> bool, closed by default     // id -> detail payload, or 'loading' / 'error'
+    tableOpen: {},   // competition name -> bool, closed by default
+    squadData: null,
+    openPlayerId: null,     // id -> detail payload, or 'loading' / 'error'
     filter: "all",
     inputValue: "",
     editState: { type: null, id: null },
@@ -1904,6 +1925,13 @@
       .then(function (d) { state.rankingsData = d.error ? { error: d.error } : d; render(); })
       .catch(function () { state.rankingsData = { error: "offline" }; render(); });
   }
+  function fetchSquadData() {
+    state.squadData = "loading"; render();
+    fetch(API_BASE + "/api/stats?kind=squad")
+      .then(function (r) { return r.json(); })
+      .then(function (d) { state.squadData = d.error ? { error: d.error } : d; render(); })
+      .catch(function () { state.squadData = { error: "offline" }; render(); });
+  }
 
   function renderSportsHub() {
     var html = '<div class="sport-tiles k-r" style="animation-delay:.12s">';
@@ -1981,7 +2009,8 @@
       ? [{ view: "schedule", label: "Schedule", sub: "Every event", icon: "clock" },
          { view: "rankings", label: "Rankings", sub: "By division", icon: "layers" }]
       : [{ view: "schedule", label: "Schedule", sub: "Full season", icon: "clock" },
-         { view: "table", label: "Table", sub: "Premier League", icon: "layers" }];
+         { view: "table", label: "Table", sub: "Premier League", icon: "layers" },
+         { view: "squad", label: "Squad", sub: "Player stats", icon: "dumbbell" }];
 
     var html = '<button class="sport-back" data-action="sports-back">' + ico("reset", 14) + '<span>Back</span></button>';
     html += '<div class="sport-head k-r" style="animation-delay:.06s;--tile-accent:' + src.accent + '">' +
@@ -2089,6 +2118,60 @@
     return html;
   }
 
+  function renderSquad() {
+    var html = '<button class="sport-back" data-action="sports-back">' + ico("reset", 14) + '<span>Back</span></button>';
+
+    var d = state.squadData;
+    if (d === null || d === "loading") {
+      html += '<div class="k-sh" style="margin-top:2px"><h2>Squad</h2></div>';
+      return html + '<div class="card"><p class="empty" style="padding:10px 0;">Loading squad…</p></div>';
+    }
+    if (d.error || !d.players || !d.players.length) {
+      html += '<div class="k-sh" style="margin-top:2px"><h2>Squad</h2></div>';
+      return html + '<div class="card"><p class="empty" style="padding:10px 0;">Couldn\'t load the squad right now.</p></div>';
+    }
+
+    html += '<div class="k-sh" style="margin-top:2px"><h2>Squad</h2><span>' + d.players.length + ' PLAYERS</span></div>';
+
+    var lastPos = "";
+    d.players.forEach(function (p, i) {
+      if (p.positionName !== lastPos) {
+        if (lastPos !== "") html += '</div>';
+        html += '<div class="k-sh" style="margin-top:' + (lastPos === "" ? "0" : "18px") + '"><h2>' + escapeHtml(p.positionName || "Other") + '</h2></div><div class="card">';
+        lastPos = p.positionName;
+      }
+
+      var open = state.openPlayerId === p.id;
+      html += '<div class="pl-row' + (open ? " open" : "") + '">' +
+        '<button class="pl-tap" data-action="toggle-player" data-id="' + p.id + '">' +
+          (p.flag ? '<img class="pl-flag" src="' + escapeHtml(p.flag) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />' : '<span class="pl-flag"></span>') +
+          '<span class="pl-main">' +
+            '<span class="pl-name">' + escapeHtml(p.name) + '</span>' +
+            '<span class="pl-sub mono">#' + escapeHtml(p.jersey || "–") + (p.age ? "  ·  " + p.age : "") + '</span>' +
+          '</span>' +
+          (p.positionName === "Goalkeeper"
+            ? '<span class="pl-stat mono">' + p.saves + ' SV</span>'
+            : '<span class="pl-stat mono">' + p.goals + 'G ' + p.assists + 'A</span>') +
+        '</button>';
+
+      if (open) {
+        html += '<div class="pl-detail">';
+        html += '<div class="pl-stat-grid">' +
+          '<div><b>' + p.appearances + '</b><s>APP</s></div>' +
+          (p.positionName === "Goalkeeper"
+            ? '<div><b>' + p.saves + '</b><s>SAVES</s></div><div><b>' + p.goalsConceded + '</b><s>CONCEDED</s></div>'
+            : '<div><b>' + p.goals + '</b><s>GOALS</s></div><div><b>' + p.assists + '</b><s>ASSISTS</s></div><div><b>' + p.shots + '</b><s>SHOTS</s></div>') +
+          (p.yellowCards ? '<div><b>' + p.yellowCards + '</b><s>YELLOW</s></div>' : '') +
+          (p.redCards ? '<div><b>' + p.redCards + '</b><s>RED</s></div>' : '') +
+        '</div>';
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+    if (lastPos !== "") html += '</div>';
+    return html;
+  }
+
   // --- drill-in: one source's full schedule, grouped by month ---
   function renderSportsSchedule(kind) {
     var src = SPORT_SOURCES.filter(function (x) { return x.kind === kind; })[0];
@@ -2161,6 +2244,7 @@
     if (!state.sportsView) return renderSportsSubmenu(state.sportsFilter);
     if (state.sportsView === "table") return renderTable();
     if (state.sportsView === "rankings") return renderRankings();
+    if (state.sportsView === "squad") return renderSquad();
     return renderSportsSchedule(state.sportsFilter);
   }
 
@@ -2372,6 +2456,11 @@
       goForward({ sportsView: v });
       if (v === "table" && state.tableData === null) fetchTableData();
       if (v === "rankings" && state.rankingsData === null) fetchRankingsData();
+      if (v === "squad" && state.squadData === null) fetchSquadData();
+    }
+    else if (action === "toggle-player") {
+      state.openPlayerId = state.openPlayerId === id ? null : id;
+      render();
     }
     else if (action === "toggle-table") {
       var tn = btn.getAttribute("data-name");

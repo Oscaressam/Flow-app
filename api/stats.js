@@ -149,9 +149,65 @@ async function fetchRankingsRaw() {
   return { divisions: divisions };
 }
 
+// ---------------- Liverpool squad ----------------
+// Real season stats come inline in the roster payload — no per-player
+// follow-up call needed. Verified live 2026-09-07 against the actual
+// 2026-27 response: appearances, goals, assists, cards, shots, and
+// goalkeeper saves/goals-conceded are all present.
+//
+// One quirk: a player with 0 appearances sometimes has NO `statistics` key
+// at all (not even zeros) — e.g. a keeper who hasn't played this season.
+// Every stat lookup below defaults to 0 rather than assuming the block exists.
+function findStat(categories, name) {
+  for (const cat of categories || []) {
+    const s = (cat.stats || []).find(function (x) { return x.name === name; });
+    if (s) return s.value;
+  }
+  return 0;
+}
+
+async function fetchSquad() {
+  const data = await getJson("https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams/364/roster");
+  const athletes = data.athletes || [];
+
+  const players = athletes.map(function (a) {
+    const cats = pick(a, ["statistics", "splits", "categories"], []);
+    return {
+      id: a.id,
+      name: a.displayName || a.fullName || "",
+      shortName: a.shortName || "",
+      jersey: a.jersey || "",
+      position: pick(a, ["position", "abbreviation"], ""),
+      positionName: pick(a, ["position", "displayName"], ""),
+      age: a.age || null,
+      country: pick(a, ["flag", "alt"], ""),
+      flag: pick(a, ["flag", "href"], ""),
+      appearances: findStat(cats, "appearances"),
+      goals: findStat(cats, "totalGoals"),
+      assists: findStat(cats, "goalAssists"),
+      shots: findStat(cats, "totalShots"),
+      yellowCards: findStat(cats, "yellowCards"),
+      redCards: findStat(cats, "redCards"),
+      saves: findStat(cats, "saves"),
+      goalsConceded: findStat(cats, "goalsConceded"),
+    };
+  });
+
+  const order = { Goalkeeper: 0, Defender: 1, Midfielder: 2, Forward: 3 };
+  players.sort(function (x, y) {
+    const oa = order[x.positionName] !== undefined ? order[x.positionName] : 9;
+    const ob = order[y.positionName] !== undefined ? order[y.positionName] : 9;
+    if (oa !== ob) return oa - ob;
+    return (y.appearances || 0) - (x.appearances || 0);
+  });
+
+  if (!players.length) throw new Error("empty roster");
+  return { players: players, seasonName: pick(data, ["season", "displayName"], "") };
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  const kind = req.query.kind === "rankings" ? "rankings" : "table";
+  const kind = req.query.kind === "rankings" ? "rankings" : req.query.kind === "squad" ? "squad" : "table";
   const cacheKey = CACHE_PREFIX + kind;
 
   try {
@@ -164,7 +220,9 @@ module.exports = async (req, res) => {
 
   let payload = { kind: kind };
   try {
-    payload = Object.assign(payload, kind === "rankings" ? await fetchRankings() : await fetchTable());
+    if (kind === "rankings") payload = Object.assign(payload, await fetchRankings());
+    else if (kind === "squad") payload = Object.assign(payload, await fetchSquad());
+    else payload = Object.assign(payload, await fetchTable());
   } catch (err) {
     payload.error = String(err.message || err);
   }
