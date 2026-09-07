@@ -681,6 +681,16 @@
   .news-headline { font-size:13px; font-weight:600; letter-spacing:-.01em; line-height:1.3; display:block; }
   .news-meta { font-size:9px; color:var(--dim); margin-top:5px; display:block; }
 
+  /* ---------- UFC recent results ---------- */
+  .res-row { padding:12px 0; border-bottom:1px solid var(--hairline); }
+  .res-row:last-child { border-bottom:none; }
+  .res-event { font-size:8.5px; letter-spacing:.1em; color:var(--dim); text-transform:uppercase; margin-bottom:6px; }
+  .res-fight { display:flex; align-items:baseline; gap:7px; flex-wrap:wrap; }
+  .res-winner { font-size:14px; font-weight:800; letter-spacing:-.01em; }
+  .res-def { font-size:9.5px; color:var(--dim); }
+  .res-loser { font-size:13px; color:var(--muted); }
+  .res-weight { font-size:9.5px; color:var(--dim); margin-top:5px; }
+
   /* ---------- collapsible table sections ---------- */
   .tbl-toggle {
     width:100%; display:flex; align-items:center; justify-content:space-between;
@@ -936,6 +946,7 @@
     tableOpen: {},   // competition name -> bool, closed by default
     squadData: null,
     newsData: null,
+    resultsData: null,
     openPlayerId: null,
     filter: "all",
     inputValue: "",
@@ -1954,6 +1965,42 @@
       .then(function (d) { state.newsData = d.error ? { error: d.error } : d; render(); })
       .catch(function () { state.newsData = { error: "offline" }; render(); });
   }
+  function fetchResultsData() {
+    state.resultsData = "loading"; render();
+    fetch(API_BASE + "/api/stats?kind=results")
+      .then(function (r) { return r.json(); })
+      .then(function (d) { state.resultsData = d.error ? { error: d.error } : d; render(); })
+      .catch(function () { state.resultsData = { error: "offline" }; render(); });
+  }
+
+  function renderResults() {
+    var html = '<button class="sport-back" data-action="sports-back">' + ico("reset", 14) + '<span>Back</span></button>';
+    html += '<div class="k-sh" style="margin-top:2px"><h2>Recent Results</h2></div>';
+
+    var d = state.resultsData;
+    if (d === null || d === "loading") {
+      return html + '<div class="card"><p class="empty" style="padding:10px 0;">Loading results…</p></div>';
+    }
+    if (d.error || !d.results || !d.results.length) {
+      return html + '<div class="card"><p class="empty" style="padding:10px 0;">Couldn\'t load results right now.</p></div>';
+    }
+
+    html += '<div class="card">';
+    d.results.forEach(function (r, i) {
+      var when = r.date ? new Date(r.date).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : "";
+      html += '<div class="res-row">' +
+        '<div class="res-event mono">' + escapeHtml(r.label) + (when ? "  ·  " + when : "") + '</div>' +
+        '<div class="res-fight">' +
+          '<span class="res-winner">' + escapeHtml(r.winner) + '</span>' +
+          '<span class="res-def mono">def.</span>' +
+          '<span class="res-loser">' + escapeHtml(r.loser) + '</span>' +
+        '</div>' +
+        (r.weight ? '<div class="res-weight mono">' + escapeHtml(r.weight) + '</div>' : '') +
+      '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
 
   function renderNews() {
     var html = '<button class="sport-back" data-action="sports-back">' + ico("reset", 14) + '<span>Back</span></button>';
@@ -2059,7 +2106,7 @@
 
     var options = kind === "ufc"
       ? [{ view: "schedule", label: "Schedule", sub: "Every event", icon: "clock" },
-         { view: "rankings", label: "Rankings", sub: "By division", icon: "layers" },
+         { view: "results", label: "Results", sub: "Recent events", icon: "layers" },
          { view: "news", label: "News", sub: "Latest headlines", icon: "note" }]
       : [{ view: "schedule", label: "Schedule", sub: "Full season", icon: "clock" },
          { view: "table", label: "Table", sub: "Premier League", icon: "layers" },
@@ -2299,6 +2346,7 @@
     if (state.sportsView === "rankings") return renderRankings();
     if (state.sportsView === "squad") return renderSquad();
     if (state.sportsView === "news") return renderNews();
+    if (state.sportsView === "results") return renderResults();
     return renderSportsSchedule(state.sportsFilter);
   }
 
@@ -2512,6 +2560,7 @@
       if (v === "rankings" && state.rankingsData === null) fetchRankingsData();
       if (v === "squad" && state.squadData === null) fetchSquadData();
       if (v === "news" && state.newsData === null) fetchNewsData();
+      if (v === "results" && state.resultsData === null) fetchResultsData();
     }
     else if (action === "toggle-player") {
       state.openPlayerId = state.openPlayerId === id ? null : id;

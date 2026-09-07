@@ -8,7 +8,7 @@
 // if it 404s or its shape doesn't match, the client gets a clean
 // "unavailable" message instead of breaking.
 
-const CACHE_PREFIX = "flow:stats:v4:"; // v3: table now returns multiple competitions, not one flat row list
+const CACHE_PREFIX = "flow:stats:v5:"; // v3: table now returns multiple competitions, not one flat row list
 const TTL_SECONDS = 60 * 60 * 6;
 
 async function redisCmd(cmd) {
@@ -227,9 +227,88 @@ async function fetchNews() {
   return { articles: articles.slice(0, 20) };
 }
 
+// ---------------- UFC recent results ----------------
+// Reuses the exact calendar + core-API resolution pattern already verified
+// live for the upcoming schedule and fight card — just pointed at the past
+// instead of the future. Confirmed elements: the calendar's event $ref
+// yields a numeric id; that id's core event object has competitions with a
+// `winner` boolean and athlete $ref links; matchNumber 1 is the headliner.
+const UFC_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard";
+const UFC_EXCLUDE_RE = /contender series/i;
+
+function fixRefUfc(ref) {
+  return String(ref || "").replace("sports.core.api.espn.pvt", "sports.core.api.espn.com")
+                          .replace(/^http:/, "https:");
+}
+
+async function fetchPastUfcEventIds(limit) {
+  const data = await getJson(UFC_SCOREBOARD_URL);
+  const calendar = pick(data, ["leagues", 0, "calendar"], []) || [];
+  const now = Date.now();
+
+  return calendar
+    .filter(function (c) {
+      if (!c || !c.startDate || !c.label || UFC_EXCLUDE_RE.test(c.label)) return false;
+      const t = new Date(c.startDate).getTime();
+      return !isNaN(t) && t < now - 4 * 60 * 60 * 1000; // finished a while ago
+    })
+    .map(function (c) {
+      const ref = pick(c, ["event", "$ref"], "");
+      const m = ref.match(/events\/(\d+)/);
+      return m ? { id: m[1], label: c.label, date: c.startDate } : null;
+    })
+    .filter(Boolean)
+    .sort(function (a, b) { return new Date(b.date) - new Date(a.date); })
+    .slice(0, limit || 5);
+}
+
+async function fetchMainEventResult(eventStub) {
+  const ev = await getJson("https://sports.core.api.espn.com/v2/sports/mma/leagues/ufc/events/" + eventStub.id);
+  const comps = Array.isArray(ev.competitions) ? ev.competitions : [];
+  const main = comps.find(function (c) { return c.matchNumber === 1; }) || comps[comps.length - 1];
+  if (!main) return null;
+
+  const cs = (main.competitors || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+  if (cs.length < 2) return null;
+
+  const names = await Promise.allSettled(
+    cs.map(function (c) { return getJson(fixRefUfc(pick(c, ["athlete", "$ref"], ""))); })
+  );
+
+  const side = function (i) {
+    const n = names[i];
+    return n.status === "fulfilled" ? (n.value.displayName || n.value.fullName || "") : "";
+  };
+  const winnerIdx = cs.findIndex(function (c) { return c.winner === true; });
+
+  return {
+    label: eventStub.label,
+    date: eventStub.date,
+    weight: pick(main, ["type", "text"], ""),
+    winner: winnerIdx !== -1 ? side(winnerIdx) : "",
+    loser: winnerIdx !== -1 ? side(winnerIdx === 0 ? 1 : 0) : "",
+    fighterA: side(0),
+    fighterB: side(1),
+  };
+}
+
+async function fetchResults() {
+  const stubs = await fetchPastUfcEventIds(5);
+  if (!stubs.length) throw new Error("no past events found in calendar");
+
+  const settled = await Promise.allSettled(stubs.map(fetchMainEventResult));
+  const results = settled
+    .filter(function (r) { return r.status === "fulfilled" && r.value; })
+    .map(function (r) { return r.value; })
+    .filter(function (r) { return r.fighterA && r.fighterB; });
+
+  if (!results.length) throw new Error("resolved zero results from past events");
+  return { results: results };
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  const kind = ["rankings", "squad", "news"].indexOf(req.query.kind) !== -1 ? req.query.kind : "table";
+  const kind = ["rankings", "squad", "news", "results"].indexOf(req.query.kind) !== -1 ? req.query.kind : "table";
   const cacheKey = CACHE_PREFIX + kind;
 
   try {
@@ -245,6 +324,7 @@ module.exports = async (req, res) => {
     if (kind === "rankings") payload = Object.assign(payload, await fetchRankings());
     else if (kind === "squad") payload = Object.assign(payload, await fetchSquad());
     else if (kind === "news") payload = Object.assign(payload, await fetchNews());
+    else if (kind === "results") payload = Object.assign(payload, await fetchResults());
     else payload = Object.assign(payload, await fetchTable());
   } catch (err) {
     payload.error = String(err.message || err);
