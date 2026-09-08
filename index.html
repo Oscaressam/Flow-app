@@ -674,6 +674,7 @@
 
   /* ---------- sports submenu icon tiles ---------- */
   .st-icon { width:62px; height:62px; display:flex; align-items:center; justify-content:center; position:relative; z-index:1; }
+  .st-icon svg { width:100%; height:100%; filter:drop-shadow(0 3px 8px rgba(0,0,0,.35)); }
 
   /* ---------- Premier League table ---------- */
   .tbl-head, .tbl-row {
@@ -789,15 +790,7 @@
   var CATEGORIES = [
     { id: "work", name: "Happiness Entertainment", short: "Work", color: "#F0B429", iconName: "briefcase",
       keywords: ["hotel","animator","animation","jaz","baron","true beach","sharm","marsa alam","shift","staff","guest experience","review platform","tripadvisor","entertainment team","stage","contract","training session","event"] },
-    { id: "vonarson", name: "Vonarson / GuestPulse", short: "Vonarson", color: "#8B7CF6", iconName: "rocket",
-      keywords: ["guestpulse","vonarson","saas","pricing page","landing page","investor","pitch deck","roadmap","nfc","qr code","onboarding flow","demo","mvp","no-code","subscriber","churn","prospect"] },
-    { id: "home", name: "Home", short: "Home", color: "#F472B6", iconName: "home",
-      keywords: ["buy","home","apartment","furniture","paint","kitchen","curtain","plant","clean","repair","grocery","fix the","decor","living room"] },
-    { id: "books", name: "Books to Read", short: "Books", color: "#34D399", iconName: "book",
-      keywords: [] },
-    { id: "movies", name: "Movies", short: "Movies", color: "#EF4444", iconName: "film",
-      keywords: [] },
-    { id: "series", name: "Series", short: "Series", color: "#FB923C", iconName: "play",
+    { id: "entertainment", name: "Entertainment", short: "Entertainment", color: "#EF4444", iconName: "film",
       keywords: [] },
     { id: "health", name: "Health", short: "Health", color: "#2DD4BF", iconName: "heart",
       keywords: ["gym","workout","supplement","vitamin","doctor","appointment","protein","health","checkup","dentist"] },
@@ -870,6 +863,23 @@
 
   var tasks = load(STORAGE_TASKS);
   if (!tasks) { tasks = seedTasks(); save(STORAGE_TASKS, tasks); }
+
+  // One-time migration: Home and Vonarson categories were removed; Books,
+  // Movies, Series were merged into Entertainment. Any existing task in
+  // those buckets gets reassigned rather than silently orphaned or crashing
+  // on a categoryId that no longer maps to anything.
+  (function migrateRemovedCategories() {
+    var toInbox = { home: 1, vonarson: 1 };
+    var toEntertainment = { books: 1, movies: 1, series: 1 };
+    var changed = false;
+    tasks = tasks.map(function (t) {
+      if (toInbox[t.categoryId]) { changed = true; return Object.assign({}, t, { categoryId: "inbox" }); }
+      if (toEntertainment[t.categoryId]) { changed = true; return Object.assign({}, t, { categoryId: "entertainment" }); }
+      return t;
+    });
+    if (changed) save(STORAGE_TASKS, tasks);
+  })();
+
   var healthLogs = load(STORAGE_HEALTH);
   if (!healthLogs) { healthLogs = seedHealth(); save(STORAGE_HEALTH, healthLogs); }
   var storedNotif = load(STORAGE_NOTIF);
@@ -992,6 +1002,7 @@
     fixturePrefs: load(STORAGE_FXPREFS) || {},
     routines: load(STORAGE_ROUTINES) || DEFAULT_ROUTINES(),
     routineComposerOpen: false,
+    entertainmentView: null,
     listening: false,
     sportsFilter: null,   // null = hub, else 'liverpool' | 'ufc'
     openFixtureId: null,
@@ -1212,9 +1223,7 @@
 
     work: '<svg viewBox="0 0 48 48"><path d="M18 12V9a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3" fill="none" stroke="#7A5B12" stroke-width="3.4" stroke-linecap="round"/><rect x="6" y="12" width="36" height="26" rx="5" fill="#F0B429"/><rect x="6" y="20" width="36" height="7" fill="#D99B12"/><circle cx="24" cy="23.5" r="2.6" fill="#7A5B12"/></svg>',
 
-    vonarson: '<svg viewBox="0 0 48 48"><path d="M24 4c6 5 9 12 9 20 0 4-1 7.4-2.4 10.4l-6.6-3-6.6 3C16 31.4 15 28 15 24c0-8 3-15 9-20z" fill="#8B7CF6"/><circle cx="24" cy="20" r="4.2" fill="#EDEAFE"/><path d="M16 32l-5 5 3 6 6-4z" fill="#6D5BD0"/><path d="M32 32l5 5-3 6-6-4z" fill="#6D5BD0"/><path d="M21 37l3 7 3-7z" fill="#FB923C"/></svg>',
-
-    home: '<svg viewBox="0 0 48 48"><path d="M6 22L24 7l18 15" fill="none" stroke="#D6467F" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><rect x="10" y="21" width="28" height="19" rx="3" fill="#F9CADD"/><rect x="20" y="27" width="8" height="13" fill="#D6467F"/><rect x="14" y="26" width="6" height="6" rx="1.5" fill="#FBBF24"/></svg>',
+    entertainment: '<svg viewBox="0 0 48 48"><path d="M24 3l3.6 10.6 11.2.2-9 6.8 3.4 10.8L24 25l-9.2 6.4 3.4-10.8-9-6.8 11.2-.2z" fill="#FBB102"/><path d="M24 3l3.6 10.6 11.2.2-9 6.8 3.4 10.8L24 25z" fill="#EF4444" opacity=".85"/><circle cx="24" cy="40" r="4.6" fill="#3A3A44"/><path d="M22 38.4l1.6 1.6 3-3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 
     books: '<svg viewBox="0 0 48 48"><rect x="7" y="26" width="34" height="7" rx="1.5" fill="#34D399" transform="rotate(-3 24 29)"/><rect x="8" y="17" width="32" height="8" rx="1.5" fill="#60A5FA"/><rect x="9" y="8" width="30" height="9" rx="1.5" fill="#F472B6"/><rect x="9" y="8" width="5" height="9" fill="#D6467F"/></svg>',
 
@@ -1370,12 +1379,8 @@
     } else if (state.filter === "notes") {
       html += renderNotesComposer();
       html += renderTaskList();
-    } else if (state.filter === "books") {
-      html += renderLibraryView("book");
-    } else if (state.filter === "movies") {
-      html += renderLibraryView("movie");
-    } else if (state.filter === "series") {
-      html += renderLibraryView("series");
+    } else if (state.filter === "entertainment") {
+      html += renderEntertainmentView();
     } else {
       html += renderTaskList();
     }
@@ -2102,7 +2107,8 @@
   function navSnapshot() {
     return {
       filter: state.filter, sportsFilter: state.sportsFilter,
-      sportsView: state.sportsView, openFixtureId: state.openFixtureId
+      sportsView: state.sportsView, openFixtureId: state.openFixtureId,
+      entertainmentView: state.entertainmentView
     };
   }
   function goForward(patch) {
@@ -2209,6 +2215,37 @@
       if (i < d.articles.length - 1) html += '';
     });
     html += '</div>';
+    return html;
+  }
+
+  var ENTERTAINMENT_TYPES = [
+    { type: "book", label: "Books", accent: "#60A5FA", sticker: "books" },
+    { type: "movie", label: "Movies", accent: "#EF4444", sticker: "movies" },
+    { type: "series", label: "Series", accent: "#FB923C", sticker: "series" },
+  ];
+
+  function renderEntertainmentHub() {
+    var html = '<div class="sport-tiles k-r" style="animation-delay:.12s">';
+    ENTERTAINMENT_TYPES.forEach(function (e) {
+      var count = libraryItems.filter(function (i) { return i.type === e.type; }).length;
+      html += '<button class="sport-tile" data-action="entertainment-open" data-type="' + e.type + '" style="--tile-accent:' + e.accent + '">' +
+        '<span class="st-glow"></span>' +
+        '<span class="st-icon">' + STICKERS[e.sticker] + '</span>' +
+        '<span class="st-label">' + e.label + '</span>' +
+        '<span class="st-sub mono">' + (count ? count + " item" + (count === 1 ? "" : "s") : "nothing yet") + '</span>' +
+      '</button>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  // Books/Movies/Series keep their exact existing renderLibraryView(type)
+  // untouched — this just adds one navigation layer in front of it, same
+  // pattern as the Sports hub, sharing the same swipe-back mechanism.
+  function renderEntertainmentView() {
+    if (!state.entertainmentView) return renderEntertainmentHub();
+    var html = '<button class="sport-back" data-action="entertainment-back">' + ico("reset", 14) + '<span>Back</span></button>';
+    html += renderLibraryView(state.entertainmentView);
     return html;
   }
 
@@ -2819,6 +2856,10 @@
       persistTasks(); render();
     }
     else if (action === "fixture-detail") { toggleFixtureDetail(id); }
+    else if (action === "entertainment-open") {
+      goForward({ entertainmentView: btn.getAttribute("data-type") });
+    }
+    else if (action === "entertainment-back") { window.history.back(); }
     else if (action === "sports-open") {
       goForward({ sportsFilter: btn.getAttribute("data-kind"), sportsView: null });
     }
