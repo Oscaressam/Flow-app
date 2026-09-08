@@ -1285,7 +1285,7 @@
     html += '<div class="quickadd-wrap k-r" style="animation-delay:.16s">';
     if (!state.composerOpen) {
       html += '<button class="qa-trigger" data-action="open-composer">' +
-          '<span class="qa-orb">' + ico("plus", 19) + '</span>' +
+          '<span class="qa-orb">' + ico(SPEECH_SUPPORTED ? "mic" : "plus", 19) + '</span>' +
           '<span class="qa-trigger-text">Capture a thought</span>' +
         '</button>';
     } else {
