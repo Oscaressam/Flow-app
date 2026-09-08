@@ -583,9 +583,10 @@
   .fr-val, .inj-status { font-size:10px; color:var(--muted); flex-shrink:0; }
 
   /* ---------- routines ---------- */
-  .routine-row { display:flex; align-items:center; justify-content:space-between;
+  .routine-row { display:flex; align-items:center; gap:10px;
     padding:11px 0; border-bottom:1px solid var(--hairline); }
   .routine-row:last-child { border-bottom:none; }
+  .routine-info { flex:1; min-width:0; }
   .routine-label { font-size:14px; font-weight:600; letter-spacing:-.01em; }
   .routine-times { font-size:9.5px; letter-spacing:.1em; color:var(--dim); margin-top:4px; }
   .routine-toggle {
@@ -595,6 +596,14 @@
     transition:background .18s, color .18s, border-color .18s;
   }
   .routine-toggle.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  .routine-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-right:2px; }
+  .routine-cat { font-size:8px; letter-spacing:.08em; color:var(--dim); margin-left:8px; text-transform:uppercase; }
+  .routine-del {
+    width:32px; height:32px; border-radius:10px; flex-shrink:0; line-height:0; margin-left:6px;
+    background:var(--surface-1); border:1px solid var(--hairline-strong); color:var(--dim);
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .routine-del:active { background:rgba(239,68,68,.15); color:#EF4444; border-color:#EF4444; }
 
 
   /* ---------- icon-only category chips ---------- */
@@ -761,6 +770,8 @@
       keywords: ["liverpool","lfc","anfield","ufc","fight","match","kickoff","premier league","champions league","salah"] },
     { id: "dog", name: "Enzo", short: "Enzo", color: "#C9A876", iconName: "paw",
       keywords: ["enzo","dog","poodle","puppy","vet","groom","walk the dog","dog food","feed enzo","wipe eyes","paws"] },
+    { id: "routines", name: "Routines", short: "Routines", color: "#FF8A5C", iconName: "clock",
+      keywords: ["routine","remind me daily","every day at","recurring reminder"] },
     { id: "inbox", name: "Inbox", short: "Inbox", color: "#8B90A0", iconName: "trayInbox", keywords: [] }
   ];
   var CAT_BY_ID = {};
@@ -941,6 +952,7 @@
     fixtures: load(STORAGE_FIXTURES) || [],
     fixturePrefs: load(STORAGE_FXPREFS) || {},
     routines: load(STORAGE_ROUTINES) || DEFAULT_ROUTINES(),
+    routineComposerOpen: false,
     sportsFilter: null,   // null = hub, else 'liverpool' | 'ufc'
     openFixtureId: null,
     fixtureDetail: {},
@@ -1141,7 +1153,8 @@
 
     dog: '<svg viewBox="0 0 48 48"><ellipse cx="14" cy="16" rx="7" ry="9" fill="#D9BD8E" transform="rotate(-18 14 16)"/><ellipse cx="34" cy="16" rx="7" ry="9" fill="#D9BD8E" transform="rotate(18 34 16)"/><circle cx="24" cy="26" r="15" fill="#EFDFC3"/><circle cx="18" cy="24" r="2.2" fill="#3A2E1F"/><circle cx="30" cy="24" r="2.2" fill="#3A2E1F"/><ellipse cx="24" cy="30" rx="3" ry="2.2" fill="#3A2E1F"/><path d="M24 32v3" stroke="#3A2E1F" stroke-width="1.6" stroke-linecap="round"/><path d="M19 36q5 3 10 0" fill="none" stroke="#3A2E1F" stroke-width="1.6" stroke-linecap="round"/></svg>',
 
-    inbox: '<svg viewBox="0 0 48 48"><path d="M8 24h9l3 5h8l3-5h9v13a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3z" fill="#8B90A0"/><path d="M11 8h26l4 16H29l-3 5h-4l-3-5H7z" fill="#B4B9C6"/></svg>'
+    inbox: '<svg viewBox="0 0 48 48"><path d="M8 24h9l3 5h8l3-5h9v13a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3z" fill="#8B90A0"/><path d="M11 8h26l4 16H29l-3 5h-4l-3-5H7z" fill="#B4B9C6"/></svg>',
+    routines: '<svg viewBox="0 0 48 48"><circle cx="24" cy="26" r="16" fill="#FF8A5C"/><circle cx="24" cy="26" r="12" fill="#FFD9C4"/><path d="M24 19v7l5 4" stroke="#7A3A1D" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M15 8l-6 6M39 14l-6-6" stroke="#7A3A1D" stroke-width="3" stroke-linecap="round"/><rect x="21" y="4" width="6" height="5" rx="2" fill="#7A3A1D"/></svg>'
   };
   function sticker(id) { return STICKERS[id] || ""; }
 
@@ -1271,6 +1284,8 @@
     } else if (state.filter === "dog") {
       html += renderRoutines("dog");
       html += renderTaskList();
+    } else if (state.filter === "routines") {
+      html += renderRoutinesTab();
     } else if (state.filter === "notes") {
       html += renderNotesComposer();
       html += renderTaskList();
@@ -2367,12 +2382,7 @@
       html += '<div class="routine-row">' +
         '<div class="routine-info">' +
           '<div class="routine-label">' + escapeHtml(r.label) + '</div>' +
-          '<div class="routine-times mono">' + r.times.map(function (t) {
-            var h = parseInt(t.slice(0, 2), 10);
-            var ampm = h >= 12 ? "PM" : "AM";
-            var h12 = h % 12 === 0 ? 12 : h % 12;
-            return h12 + (ampm === "AM" ? "am" : "pm");
-          }).join("  ·  ") + '</div>' +
+          '<div class="routine-times mono">' + r.times.map(formatRoutineTime).join("  ·  ") + '</div>' +
         '</div>' +
         '<button class="routine-toggle' + (on ? " on" : "") + '" data-action="toggle-routine" data-id="' + r.id + '">' +
           ico("bell", 13) +
@@ -2381,6 +2391,100 @@
     });
 
     return html + '</div>';
+  }
+
+
+  function formatRoutineTime(t) {
+    var parts = t.split(":");
+    var h = parseInt(parts[0], 10), m = parseInt(parts[1], 10) || 0;
+    var ampm = h >= 12 ? "pm" : "am";
+    var h12 = h % 12 === 0 ? 12 : h % 12;
+    return h12 + (m > 0 ? ":" + (m < 10 ? "0" + m : m) : "") + ampm;
+  }
+
+  var TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+
+  function parseTimesInput(raw) {
+    return (raw || "")
+      .split(/[,\s]+/)
+      .map(function (t) { return t.trim(); })
+      .filter(function (t) { return TIME_RE.test(t); });
+  }
+
+  function addRoutine() {
+    var label = (document.getElementById("routine-label").value || "").trim();
+    var catId = document.getElementById("routine-cat").value;
+    var times = parseTimesInput(document.getElementById("routine-times").value);
+    if (!label || times.length === 0) {
+      alert("Give it a label and at least one valid time (HH:MM, 24-hour, comma separated).");
+      return;
+    }
+    var routine = {
+      id: "routine-" + Date.now().toString(36),
+      label: label,
+      categoryId: catId,
+      times: times,
+      enabled: true,
+    };
+    state.routines = state.routines.concat([routine]);
+    save(STORAGE_ROUTINES, state.routines);
+    syncTasksToServer();
+    state.routineComposerOpen = false;
+    render();
+  }
+
+  function deleteRoutine(id) {
+    state.routines = state.routines.filter(function (r) { return r.id !== id; });
+    save(STORAGE_ROUTINES, state.routines);
+    syncTasksToServer();
+    render();
+  }
+
+  function renderRoutinesTab() {
+    var html = "";
+
+    if (!state.routineComposerOpen) {
+      html += '<button class="qa-trigger k-r" style="animation-delay:.06s" data-action="open-routine-composer">' +
+          '<span class="qa-orb">' + ico("plus", 19) + '</span>' +
+          '<span class="qa-trigger-text">New routine</span>' +
+        '</button>';
+    } else {
+      var catOptions = CATEGORIES.map(function (c) {
+        return '<option value="' + c.id + '">' + escapeHtml(c.short) + '</option>';
+      }).join("");
+      html += '<div class="card k-r" style="animation-delay:.06s">' +
+        '<div class="eyebrow">' + ico("plus", 13) + ' New routine' +
+          '<button class="qa-close" style="margin-left:auto" data-action="close-routine-composer">' + ico("close", 15) + '</button>' +
+        '</div>' +
+        '<input id="routine-label" type="text" class="due-input" placeholder="Label, e.g. Take vitamins" style="width:100%;box-sizing:border-box;margin-bottom:9px;" />' +
+        '<select id="routine-cat" class="due-input" style="width:100%;box-sizing:border-box;margin-bottom:9px;">' + catOptions + '</select>' +
+        '<input id="routine-times" type="text" class="due-input" placeholder="Times, e.g. 08:00, 20:00" style="width:100%;box-sizing:border-box;margin-bottom:11px;" />' +
+        '<button id="routine-add-btn" class="chip" style="background:var(--accent);color:var(--on-accent);border-color:transparent;width:100%;justify-content:center;">Add routine</button>' +
+      '</div>';
+    }
+
+    var all = state.routines || [];
+    if (all.length === 0) return html;
+
+    html += '<div class="k-sh" style="margin-top:18px"><h2>All routines</h2><span>' + all.length + '</span></div>';
+    html += '<div class="card">';
+    all.forEach(function (r) {
+      var on = r.enabled !== false;
+      var cat = CAT_BY_ID[r.categoryId];
+      html += '<div class="routine-row">' +
+        '<span class="routine-dot" style="background:' + ((cat && cat.color) || "var(--dim)") + '"></span>' +
+        '<div class="routine-info">' +
+          '<div class="routine-label">' + escapeHtml(r.label) + '<span class="routine-cat mono">' + escapeHtml((cat && cat.short) || "") + '</span></div>' +
+          '<div class="routine-times mono">' + r.times.map(formatRoutineTime).join("  ·  ") + '</div>' +
+        '</div>' +
+        '<button class="routine-toggle' + (on ? " on" : "") + '" data-action="toggle-routine" data-id="' + r.id + '">' +
+          ico("bell", 13) +
+        '</button>' +
+        '<button class="routine-del" data-action="delete-routine" data-id="' + r.id + '">' + ico("trash", 13) + '</button>' +
+      '</div>';
+    });
+    html += '</div>';
+    return html;
   }
 
   function renderFocusSplit() {
@@ -2584,6 +2688,9 @@
       syncTasksToServer();
       render();
     }
+    else if (action === "open-routine-composer") { state.routineComposerOpen = true; render(); }
+    else if (action === "close-routine-composer") { state.routineComposerOpen = false; render(); }
+    else if (action === "delete-routine") { deleteRoutine(id); }
     else if (action === "toggle-fx-reminder") { toggleFixtureReminder(id); }
     else if (action === "open-composer") { state.composerOpen = true; render(); }
     else if (action === "close-composer") { state.composerOpen = false; state.inputValue = ""; render(); }
@@ -2828,6 +2935,11 @@
           render();
         });
       });
+    }
+
+    var routineAddBtn = document.getElementById("routine-add-btn");
+    if (routineAddBtn) {
+      routineAddBtn.addEventListener("click", addRoutine);
     }
   }
 

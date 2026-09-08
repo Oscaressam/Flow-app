@@ -89,6 +89,8 @@ const CATEGORY_LABEL = {
   health: "HEALTH",
   dog: "ENZO",
   notes: "NOTES",
+  sports: "SPORTS",
+  routines: "ROUTINE",
   inbox: "INBOX",
 };
 
