@@ -1049,6 +1049,29 @@
     render();
   }
 
+  function exportData() {
+    var payload = {
+      exportedAt: new Date().toISOString(),
+      app: "MindORG",
+      tasks: tasks,
+      healthLogs: healthLogs,
+      libraryItems: libraryItems,
+      routines: state.routines,
+      fixturePrefs: state.fixturePrefs,
+      themeMode: state.themeMode,
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    var dateStamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = "mindorg-backup-" + dateStamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
   applyTheme();
   if (state.themeMode === "auto" && !load(STORAGE_GEO)) requestGeo();
   setInterval(applyTheme, 5 * 60 * 1000);
@@ -1126,7 +1149,8 @@
     home:      '<path d="M4 11.4L12 4l8 7.4"/><path d="M6 10v9.4h12V10"/><path d="M10 19.4v-5.6h4v5.6"/>',
     grid:      '<rect x="3.4" y="3.4" width="7.4" height="7.4" rx="1.6"/><rect x="13.2" y="3.4" width="7.4" height="7.4" rx="1.6"/><rect x="3.4" y="13.2" width="7.4" height="7.4" rx="1.6"/><rect x="13.2" y="13.2" width="7.4" height="7.4" rx="1.6"/>',
     heart:     '<path d="M12 20s-7.4-4.6-9.4-9.4C1.4 7.4 3 4.4 6.2 4c2-.3 3.8.7 5.8 3 2-2.3 3.8-3.3 5.8-3 3.2.4 4.8 3.4 3.6 6.6C19.4 15.4 12 20 12 20z"/>',
-    trayInbox: '<path d="M3.4 12.6h5.2l1.8 3h3.2l1.8-3h5.2"/><path d="M5.6 5h12.8l1.6 7.6v7.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 20V12.6z"/>'
+    trayInbox: '<path d="M3.4 12.6h5.2l1.8 3h3.2l1.8-3h5.2"/><path d="M5.6 5h12.8l1.6 7.6v7.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 20V12.6z"/>',
+    download: '<path d="M12 3.6v11.4M7.2 10.2L12 15l4.8-4.8"/><path d="M4.4 17.4v2.4a1.6 1.6 0 0 0 1.6 1.6h12a1.6 1.6 0 0 0 1.6-1.6v-2.4"/>'
   };
 
   // ---- Colorful cutout-style stickers for category chips: flat, multi-color
@@ -1226,6 +1250,7 @@
       '<div class="brand"><div class="brand-bar"></div><div class="brand-name">MindORG</div></div>' +
       '<div class="stats mono">' +
         '<button class="theme-btn" data-action="cycle-theme" title="Theme: ' + state.themeMode + '">' + themeIcon + '</button>' +
+        '<button class="theme-btn" data-action="export-data" title="Export your data">' + ico("download", 15) + '</button>' +
         '<button class="bell' + (state.notifEnabled ? ' on' : '') + '" data-action="toggle-notif">' + ico("bell", 15) + (dueSoonAll.length ? '<span>' + dueSoonAll.length + '</span>' : '') + '</button>' +
       '</div></div>';
 
@@ -2727,6 +2752,7 @@
     else if (action === "close-composer") { state.composerOpen = false; state.inputValue = ""; render(); }
     else if (action === "toggle-notif") { toggleNotif(); }
     else if (action === "cycle-theme") { cycleTheme(); }
+    else if (action === "export-data") { exportData(); }
     else if (action === "edit-note") { state.editingNoteId = id; render(); }
     else if (action === "toggle-lib-composer") { state.libraryComposerOpen = !state.libraryComposerOpen; render(); }
     else if (action === "open-library-item") { state.editingLibraryId = id; render(); }
