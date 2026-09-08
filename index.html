@@ -24,6 +24,7 @@
     --accent:#FBB102; --accent-2:#FFCA4A; --on-accent:#0A0A0C;
     --accent-soft: rgba(251,177,2,0.16); --accent-glow: rgba(251,177,2,0.55);
     --glass: rgba(255,255,255,0.055); --glass-border: rgba(255,255,255,0.11);
+    --card-flat: rgba(255,255,255,0.085); --card-flat-border: rgba(255,255,255,0.13);
     --glass-hi: rgba(255,255,255,0.09); --glass-blur: 22px;
   }
   [data-theme="light"] {
@@ -38,6 +39,7 @@
     --accent:#FBB102; --accent-2:#FFCA4A; --on-accent:#0A0A0C;
     --accent-soft: rgba(251,177,2,0.18); --accent-glow: rgba(251,177,2,0.50);
     --glass: rgba(255,255,255,0.60); --glass-border: rgba(255,255,255,0.85);
+    --card-flat: rgba(255,255,255,0.72); --card-flat-border: rgba(255,255,255,0.88);
     --glass-hi: rgba(255,255,255,0.9); --glass-blur: 22px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -104,10 +106,13 @@
   }
 
   .card {
-    background:var(--glass);
-    backdrop-filter:blur(var(--glass-blur)) saturate(170%);
-    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(170%);
-    border:1px solid var(--glass-border); border-radius:24px; padding:18px; margin-bottom:16px;
+    /* Flat translucent surface, no backdrop-filter. Home stacks 5-8 of
+       these; blurring each one on every scroll frame was the single
+       biggest perf cost on the page. Opacity bumped from the 5.5% glass
+       token to compensate — without blur's frosting, that low an opacity
+       reads as almost nothing rather than as a surface. */
+    background:var(--card-flat);
+    border:1px solid var(--card-flat-border); border-radius:24px; padding:18px; margin-bottom:16px;
     box-shadow:0 12px 40px -18px var(--shadow), inset 0 1px 0 var(--glass-hi);
   }
   .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted);
@@ -129,10 +134,8 @@
   .tile {
     aspect-ratio:1; border-radius:20px; padding:13px; position:relative;
     display:flex; flex-direction:column; justify-content:space-between;
-    background:var(--glass);
-    backdrop-filter:blur(16px) saturate(160%);
-    -webkit-backdrop-filter:blur(16px) saturate(160%);
-    border:1px solid var(--glass-border); box-shadow:0 8px 26px -14px var(--shadow), inset 0 1px 0 var(--glass-hi);
+    background:var(--card-flat); /* flat, not blurred — same reasoning as .card */
+    border:1px solid var(--card-flat-border); box-shadow:0 8px 26px -14px var(--shadow), inset 0 1px 0 var(--glass-hi);
   }
   .tile-top { display:flex; align-items:center; justify-content:space-between; gap:4px; }
   .tile-cat-label { font-size:9.5px; font-weight:700; letter-spacing:.05em; background:none; border:none; padding:0; cursor:pointer; }
@@ -597,10 +600,11 @@
   /* ---------- icon-only category chips ---------- */
   .chips { flex-wrap:wrap; }
   .cat-chip {
+    /* 12 of these render on every screen, always — the highest simultaneous
+       blur count in the app before this fix. Flat, same reasoning as .card. */
     position:relative; width:44px; height:44px; border-radius:15px; flex-shrink:0;
     display:flex; align-items:center; justify-content:center; padding:0;
-    background:var(--glass); border:1px solid var(--glass-border);
-    backdrop-filter:blur(14px) saturate(150%); -webkit-backdrop-filter:blur(14px) saturate(150%);
+    background:var(--card-flat); border:1px solid var(--card-flat-border);
     color:var(--cat-color); cursor:pointer;
     transition:transform .18s cubic-bezier(.16,1,.3,1), background .18s, border-color .18s;
   }
@@ -1840,7 +1844,7 @@
               (b.isMain ? ' <span class="bout-main">MAIN</span>' : '') + '</div>' +
             '<div class="bout-row">' +
               '<span class="bout-f">' +
-                (b.a.flag ? '<img src="' + escapeHtml(b.a.flag) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'"/>' : '') +
+                (b.a.flag ? '<img src="' + escapeHtml(b.a.flag) + '" alt="" width="17" height="12" loading="lazy" onerror="this.style.display=\'none\'"/>' : '') +
                 escapeHtml(b.a.name) +
                 (b.a.record ? ' <i class="mono">' + escapeHtml(b.a.record) + '</i>' : '') +
               '</span>' +
@@ -1848,7 +1852,7 @@
               '<span class="bout-f r">' +
                 escapeHtml(b.b.name) +
                 (b.b.record ? ' <i class="mono">' + escapeHtml(b.b.record) + '</i>' : '') +
-                (b.b.flag ? '<img src="' + escapeHtml(b.b.flag) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'"/>' : '') +
+                (b.b.flag ? '<img src="' + escapeHtml(b.b.flag) + '" alt="" width="17" height="12" loading="lazy" onerror="this.style.display=\'none\'"/>' : '') +
               '</span>' +
             '</div>' +
           '</div>';

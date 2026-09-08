@@ -8,7 +8,7 @@
 // if it 404s or its shape doesn't match, the client gets a clean
 // "unavailable" message instead of breaking.
 
-const CACHE_PREFIX = "flow:stats:v5:"; // v3: table now returns multiple competitions, not one flat row list
+const CACHE_PREFIX = "flow:stats:v6:"; // v3: table now returns multiple competitions, not one flat row list
 const TTL_SECONDS = 60 * 60 * 6;
 
 async function redisCmd(cmd) {
@@ -292,11 +292,28 @@ async function fetchMainEventResult(eventStub) {
   };
 }
 
+// Caps how many requests fire at once. A tap on "Results" used to fan out
+// to up to 15 concurrent, unthrottled requests against an unofficial,
+// unauthenticated ESPN endpoint (5 events in parallel, each spawning 2
+// parallel fighter lookups the moment its own event fetch resolved) — the
+// kind of burst that gets an IP soft-blocked with no warning. Processing in
+// small batches trades a bit of latency for being a much better citizen of
+// an API that owes us nothing.
+async function mapBatched(items, batchSize, fn) {
+  const out = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const settled = await Promise.allSettled(batch.map(fn));
+    out.push.apply(out, settled);
+  }
+  return out;
+}
+
 async function fetchResults() {
-  const stubs = await fetchPastUfcEventIds(5);
+  const stubs = await fetchPastUfcEventIds(3); // was 5 — fewer events, smaller burst
   if (!stubs.length) throw new Error("no past events found in calendar");
 
-  const settled = await Promise.allSettled(stubs.map(fetchMainEventResult));
+  const settled = await mapBatched(stubs, 2, fetchMainEventResult); // 2 events at a time
   const results = settled
     .filter(function (r) { return r.status === "fulfilled" && r.value; })
     .map(function (r) { return r.value; })
