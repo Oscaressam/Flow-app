@@ -184,6 +184,30 @@
   .note-tile { aspect-ratio:auto; min-height:150px; }
   .note-tap { cursor:pointer; }
 
+  /* ---------- Keep-style notes grid ---------- */
+  .notes-grid { column-count:2; column-gap:10px; margin-bottom:4px; }
+  .notes-grid .note-tile { display:inline-block; width:100%; break-inside:avoid; margin-bottom:10px; }
+  .notes-section-label {
+    display:flex; align-items:center; gap:6px; font-size:9px; letter-spacing:.18em;
+    color:var(--dim); text-transform:uppercase; margin:16px 2px 9px;
+  }
+  .notes-section-label:first-child { margin-top:0; }
+  .note-tile-actions { display:flex; align-items:center; gap:2px; }
+  .note-pin {
+    background:none; border:none; color:var(--dim); cursor:pointer; padding:4px;
+    line-height:0; border-radius:50%; transform:rotate(0deg); transition:color .18s, transform .18s;
+  }
+  .note-pin.on { color:var(--accent); transform:rotate(-40deg); }
+  .note-tile.pinned { box-shadow:0 0 0 1.5px var(--accent-glow), 0 12px 26px -14px var(--shadow); }
+  .note-footer { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+  .note-palette { display:flex; gap:5px; }
+  .note-swatch {
+    width:15px; height:15px; border-radius:50%; padding:0; cursor:pointer;
+    border:1.5px solid var(--hairline-strong); flex-shrink:0;
+  }
+  .note-swatch.default { background-image:linear-gradient(135deg, transparent 46%, var(--dim) 46%, var(--dim) 54%, transparent 54%); }
+  .note-swatch.active { border-color:var(--text); box-shadow:0 0 0 2px var(--bg), 0 0 0 3.5px var(--text); }
+
   .row-item { display:flex; align-items:flex-start; gap:10px; padding:12px 0; border-bottom:1px solid var(--hairline); }
   .row-item:last-child { border-bottom:none; }
   .row-body { flex:1; min-width:0; }
@@ -1175,7 +1199,9 @@
     heart:     '<path d="M12 20s-7.4-4.6-9.4-9.4C1.4 7.4 3 4.4 6.2 4c2-.3 3.8.7 5.8 3 2-2.3 3.8-3.3 5.8-3 3.2.4 4.8 3.4 3.6 6.6C19.4 15.4 12 20 12 20z"/>',
     trayInbox: '<path d="M3.4 12.6h5.2l1.8 3h3.2l1.8-3h5.2"/><path d="M5.6 5h12.8l1.6 7.6v7.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 20V12.6z"/>',
     download: '<path d="M12 3.6v11.4M7.2 10.2L12 15l4.8-4.8"/><path d="M4.4 17.4v2.4a1.6 1.6 0 0 0 1.6 1.6h12a1.6 1.6 0 0 0 1.6-1.6v-2.4"/>',
-    mic: '<rect x="9" y="2.6" width="6" height="11" rx="3"/><path d="M5.6 11.4a6.4 6.4 0 0 0 12.8 0"/><path d="M12 17.8v3.6M8.6 21.4h6.8"/>'
+    mic: '<rect x="9" y="2.6" width="6" height="11" rx="3"/><path d="M5.6 11.4a6.4 6.4 0 0 0 12.8 0"/><path d="M12 17.8v3.6M8.6 21.4h6.8"/>',
+    pin: '<path d="M12 2.4l3 3-1.6 5.4 4.2 4.2-2 2-4.2-4.2L6 14.4l-3-3z"/><path d="M8.6 15.4L3 21"/>',
+    palette: '<circle cx="12" cy="12" r="9"/><circle cx="8.4" cy="10" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="7.4" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.8" cy="9.6" r="1.4" fill="currentColor" stroke="none"/><circle cx="16.2" cy="14" r="1.4" fill="currentColor" stroke="none"/><path d="M12 3a9 9 0 1 0 3.2 17.4c.9-.3 1-1.5.2-2-1.6-1-1.3-3.4.5-4h0a2.4 2.4 0 0 0 0-4.8H14"/>'
   };
 
   // ---- Colorful cutout-style stickers for category chips: flat, multi-color
@@ -1385,20 +1411,51 @@
     '</div>';
   }
 
+  var NOTE_COLORS = [
+    { id: "", hex: null },
+    { id: "red", hex: "#F87171" },
+    { id: "orange", hex: "#FB923C" },
+    { id: "yellow", hex: "#FBBF24" },
+    { id: "green", hex: "#34D399" },
+    { id: "teal", hex: "#2DD4BF" },
+    { id: "blue", hex: "#60A5FA" },
+    { id: "purple", hex: "#A78BFA" },
+    { id: "pink", hex: "#F472B6" },
+  ];
+
   function renderTaskTile(t) {
     var cat = CAT_BY_ID[t.categoryId];
 
     if (t.categoryId === "notes") {
       var editingNote = state.editingNoteId === t.id;
+      var chosen = t.color ? NOTE_COLORS.filter(function (c) { return c.id === t.color; })[0] : null;
+      var bg = (chosen && chosen.hex) || cat.color;
+      var pinned = !!t.pinned;
+
       var body = editingNote
         ? '<textarea class="note-edit-area" data-role="note-edit" data-id="' + t.id + '">' + escapeHtml(t.text) + '</textarea>'
-        : '<p class="tile-text note-tap" data-action="edit-note" data-id="' + t.id + '" style="-webkit-line-clamp:6;">' + escapeHtml(t.text) + '</p>';
-      return '<div class="tile note-tile" style="background:linear-gradient(160deg,' + cat.color + '14,' + cat.color + '05);">' +
-        '<div class="tile-top"><span class="tile-cat-label mono" style="color:' + cat.color + '">NOTE</span>' +
-        '<button class="tile-del" data-action="delete-task" data-id="' + t.id + '">' + ico("close", 13) + '</button></div>' +
+        : '<p class="tile-text note-tap" data-action="edit-note" data-id="' + t.id + '" style="-webkit-line-clamp:8;">' + escapeHtml(t.text) + '</p>';
+
+      var html = '<div class="tile note-tile' + (pinned ? " pinned" : "") + '" style="background:linear-gradient(160deg,' + bg + '18,' + bg + '06);">' +
+        '<div class="tile-top">' +
+          '<span class="tile-cat-label mono" style="color:' + bg + '">NOTE</span>' +
+          '<span class="note-tile-actions">' +
+            '<button class="note-pin' + (pinned ? " on" : "") + '" data-action="toggle-pin-note" data-id="' + t.id + '" title="Pin">' + ico("pin", 13) + '</button>' +
+            '<button class="tile-del" data-action="delete-task" data-id="' + t.id + '">' + ico("close", 13) + '</button>' +
+          '</span>' +
+        '</div>' +
         body +
-        '<span class="tile-note-meta mono">' + new Date(t.createdAt).toLocaleDateString([], { month: "short", day: "numeric" }) + '</span>' +
+        '<div class="note-footer">' +
+          '<span class="note-palette">' + NOTE_COLORS.map(function (c) {
+            var sw = c.hex || "var(--tile-empty)";
+            var isDefault = c.id === "";
+            return '<button class="note-swatch' + ((t.color || "") === c.id ? " active" : "") + (isDefault ? " default" : "") +
+              '" data-action="set-note-color" data-id="' + t.id + '" data-color="' + c.id + '" style="background:' + sw + '"></button>';
+          }).join("") + '</span>' +
+          '<span class="tile-note-meta mono">' + new Date(t.createdAt).toLocaleDateString([], { month: "short", day: "numeric" }) + '</span>' +
+        '</div>' +
       '</div>';
+      return html;
     }
 
     var editingCat = state.editState.type === "cat" && state.editState.id === t.id;
@@ -1495,6 +1552,26 @@
       });
       listHtml += '</div>';
       return listHtml;
+    }
+
+    if (state.filter === "notes") {
+      var noteItems = tasks.filter(function (t) { return t.categoryId === "notes"; });
+      if (noteItems.length === 0) {
+        return '<div class="card"><p class="empty">Nothing here yet — type above to add your first one.</p></div>';
+      }
+      var pinnedNotes = noteItems.filter(function (t) { return t.pinned; }).sort(function (a, b) { return b.createdAt - a.createdAt; });
+      var otherNotes = noteItems.filter(function (t) { return !t.pinned; }).sort(function (a, b) { return b.createdAt - a.createdAt; });
+
+      var out = "";
+      if (pinnedNotes.length) {
+        out += '<div class="notes-section-label mono">' + ico("pin", 10) + ' PINNED</div>';
+        out += '<div class="notes-grid">' + pinnedNotes.map(renderTaskTile).join("") + '</div>';
+      }
+      if (otherNotes.length) {
+        if (pinnedNotes.length) out += '<div class="notes-section-label mono">OTHERS</div>';
+        out += '<div class="notes-grid">' + otherNotes.map(renderTaskTile).join("") + '</div>';
+      }
+      return out;
     }
 
     var items = tasks.filter(function (t) { return t.categoryId === state.filter; }).sort(sortFn);
@@ -2782,6 +2859,17 @@
     else if (action === "cycle-theme") { cycleTheme(); }
     else if (action === "export-data") { exportData(); }
     else if (action === "edit-note") { state.editingNoteId = id; render(); }
+    else if (action === "toggle-pin-note") {
+      tasks = tasks.map(function (t) { return t.id === id ? Object.assign({}, t, { pinned: !t.pinned }) : t; });
+      persistTasks();
+      render();
+    }
+    else if (action === "set-note-color") {
+      var colorVal = btn.getAttribute("data-color");
+      tasks = tasks.map(function (t) { return t.id === id ? Object.assign({}, t, { color: colorVal }) : t; });
+      persistTasks();
+      render();
+    }
     else if (action === "toggle-lib-composer") { state.libraryComposerOpen = !state.libraryComposerOpen; render(); }
     else if (action === "open-library-item") { state.editingLibraryId = id; render(); }
     else if (action === "close-library-item") { state.editingLibraryId = null; render(); }
