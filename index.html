@@ -316,6 +316,16 @@
     line-height:0; flex-shrink:0; border-radius:50%;
   }
   .qa-close:active { background:var(--surface-1); }
+  .qa-mic {
+    background:none; border:none; color:var(--dim); cursor:pointer; padding:6px;
+    line-height:0; flex-shrink:0; border-radius:50%; transition:color .18s, background .18s;
+  }
+  .qa-mic:active { background:var(--surface-1); }
+  .qa-mic.listening {
+    color:#EF4444; background:rgba(239,68,68,.14);
+    animation:micPulse 1.3s ease-in-out infinite;
+  }
+  @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)} 50%{box-shadow:0 0 0 8px rgba(239,68,68,0)} }
 
   /* ---------- compact vitals ---------- */
   .vitals-card { padding:16px; }
@@ -737,6 +747,9 @@
   var STORAGE_FIXTURES = "mindorg.fixtures.v2";
   var STORAGE_FXPREFS = "mindorg.fixtureprefs.v1";
   var STORAGE_ROUTINES = "mindorg.routines.v1";
+  var SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var SPEECH_SUPPORTED = !!SpeechRecognitionAPI;
+  var activeRecognition = null;
 
   // Seeded once on first load. After that the saved copy in localStorage
   // wins, so toggling a routine off (or editing later) sticks.
@@ -955,6 +968,7 @@
     fixturePrefs: load(STORAGE_FXPREFS) || {},
     routines: load(STORAGE_ROUTINES) || DEFAULT_ROUTINES(),
     routineComposerOpen: false,
+    listening: false,
     sportsFilter: null,   // null = hub, else 'liverpool' | 'ufc'
     openFixtureId: null,
     fixtureDetail: {},
@@ -1037,6 +1051,16 @@
     document.documentElement.setAttribute("data-theme", resolveEffectiveTheme());
     var metaTheme = document.querySelector('meta[name="theme-color"]');
     if (metaTheme) metaTheme.setAttribute("content", resolveEffectiveTheme() === "light" ? "#F1F2F7" : "#0F1117");
+  }
+
+  function submitQuickAddTask(text) {
+    text = (text || "").trim();
+    if (!text) return;
+    var newTask = { id: makeId(), text: text, categoryId: categorize(text), dueDate: null, done: false, createdAt: Date.now() };
+    tasks = [newTask].concat(tasks);
+    persistTasks();
+    state.inputValue = "";
+    render();
   }
 
   function cycleTheme() {
@@ -1150,7 +1174,8 @@
     grid:      '<rect x="3.4" y="3.4" width="7.4" height="7.4" rx="1.6"/><rect x="13.2" y="3.4" width="7.4" height="7.4" rx="1.6"/><rect x="3.4" y="13.2" width="7.4" height="7.4" rx="1.6"/><rect x="13.2" y="13.2" width="7.4" height="7.4" rx="1.6"/>',
     heart:     '<path d="M12 20s-7.4-4.6-9.4-9.4C1.4 7.4 3 4.4 6.2 4c2-.3 3.8.7 5.8 3 2-2.3 3.8-3.3 5.8-3 3.2.4 4.8 3.4 3.6 6.6C19.4 15.4 12 20 12 20z"/>',
     trayInbox: '<path d="M3.4 12.6h5.2l1.8 3h3.2l1.8-3h5.2"/><path d="M5.6 5h12.8l1.6 7.6v7.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 20V12.6z"/>',
-    download: '<path d="M12 3.6v11.4M7.2 10.2L12 15l4.8-4.8"/><path d="M4.4 17.4v2.4a1.6 1.6 0 0 0 1.6 1.6h12a1.6 1.6 0 0 0 1.6-1.6v-2.4"/>'
+    download: '<path d="M12 3.6v11.4M7.2 10.2L12 15l4.8-4.8"/><path d="M4.4 17.4v2.4a1.6 1.6 0 0 0 1.6 1.6h12a1.6 1.6 0 0 0 1.6-1.6v-2.4"/>',
+    mic: '<rect x="9" y="2.6" width="6" height="11" rx="3"/><path d="M5.6 11.4a6.4 6.4 0 0 0 12.8 0"/><path d="M12 17.8v3.6M8.6 21.4h6.8"/>'
   };
 
   // ---- Colorful cutout-style stickers for category chips: flat, multi-color
@@ -1272,6 +1297,9 @@
             ? ' style="background:' + previewCat.color + '25;color:' + previewCat.color + '">' + previewCat.short
             : ' style="display:none">') +
         '</span>' +
+        (SPEECH_SUPPORTED
+          ? '<button class="qa-mic' + (state.listening ? " listening" : "") + '" id="qa-mic-btn" title="Dictate">' + ico("mic", 15) + '</button>'
+          : '') +
         '<button class="qa-close" data-action="close-composer">' + ico("close", 15) + '</button>' +
         '</div><p class="hint qa-expand-hint">press enter to file it — tap a tag later to move it</p>';
     }
@@ -2898,17 +2926,70 @@
       input.addEventListener("keydown", function (e) {
         if (e.key === "Escape") { state.composerOpen = false; state.inputValue = ""; render(); return; }
         if (e.key === "Enter") {
-          var text = state.inputValue.trim();
-          if (!text) return;
-          var newTask = { id: makeId(), text: text, categoryId: categorize(text), dueDate: null, done: false, createdAt: Date.now() };
-          tasks = [newTask].concat(tasks);
-          persistTasks();
-          state.inputValue = "";
-          render();
+          submitQuickAddTask(state.inputValue);
           var el2 = document.getElementById("quick-input");
           if (el2) el2.focus();
         }
       });
+
+      var micBtn = document.getElementById("qa-mic-btn");
+      if (micBtn && SPEECH_SUPPORTED) {
+        micBtn.addEventListener("click", function () {
+          if (state.listening) {
+            if (activeRecognition) { try { activeRecognition.stop(); } catch (e) {} }
+            return;
+          }
+          var recog = new SpeechRecognitionAPI();
+          activeRecognition = recog;
+          recog.lang = "en-US";
+          recog.interimResults = true;
+          recog.maxAlternatives = 1;
+
+          recog.onstart = function () { state.listening = true; render(); };
+
+          // Interim results update the field directly, same as typing does —
+          // NOT a full render() per chunk, which would rebuild the whole app
+          // on every partial phrase and drop focus (the exact bug fixed
+          // earlier for keystrokes). Only a FINAL result creates a task,
+          // and submitQuickAddTask's own render() is appropriate there since
+          // real state actually changed.
+          recog.onresult = function (e) {
+            var transcript = "";
+            for (var i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+            state.inputValue = transcript;
+            var liveInput = document.getElementById("quick-input");
+            if (liveInput) liveInput.value = transcript;
+            var tag = document.getElementById("live-tag");
+            if (tag) {
+              var cat = transcript.trim() ? CAT_BY_ID[categorize(transcript)] : null;
+              if (cat) {
+                tag.textContent = cat.short; tag.style.display = "";
+                tag.style.background = cat.color + "25"; tag.style.color = cat.color;
+              } else {
+                tag.textContent = ""; tag.style.display = "none";
+              }
+            }
+            var last = e.results[e.results.length - 1];
+            if (last && last.isFinal) submitQuickAddTask(transcript);
+          };
+
+          recog.onerror = function (e) {
+            state.listening = false;
+            if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+              alert("Microphone access is blocked. Enable it in your browser's site settings to use dictation.");
+            }
+            render();
+          };
+
+          recog.onend = function () {
+            state.listening = false;
+            activeRecognition = null;
+            render();
+          };
+
+          try { recog.start(); } catch (e) { state.listening = false; }
+        });
+      }
     }
 
     var noteInput = document.getElementById("note-input");
