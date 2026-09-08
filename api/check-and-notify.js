@@ -121,6 +121,77 @@ async function redisCmd(cmd) {
   return data.result;
 }
 
+// ---------- weekly recap ----------
+// Ported directly from the client's scoreOf()/currentStreak() so the number
+// in the Sunday push matches what the app itself would show, rather than a
+// second, drifting implementation of the same rule.
+const WATER_GOAL_ML_SERVER = 3000;
+
+function scoreOfServer(log) {
+  if (!log) return null;
+  let n = 0;
+  if (log.eat) n++;
+  if ((log.waterMl || 0) >= WATER_GOAL_ML_SERVER) n++;
+  if (log.supplements) n++;
+  if (log.gym) n++;
+  return n;
+}
+
+function cairoDateKeyFromParts(y, m, d) {
+  return y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+}
+
+async function buildWeeklyRecap(todayParts) {
+  const [tasksRaw, healthRaw] = await Promise.all([
+    redisCmd(["GET", "flow:tasks"]),
+    redisCmd(["GET", "flow:health"]),
+  ]);
+  const tasks = tasksRaw ? JSON.parse(tasksRaw) : [];
+  const healthLogs = healthRaw ? JSON.parse(healthRaw) : {};
+
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const completedThisWeek = tasks.filter(function (t) {
+    return t.completedAt && t.completedAt >= weekAgo;
+  }).length;
+
+  // Streak: walk backward from today (Cairo) via pure UTC-anchored calendar
+  // arithmetic — timezone-agnostic regardless of what TZ Vercel's server
+  // itself runs in, since only whole-day steps from a fixed UTC-midnight
+  // anchor are used, never wall-clock/local time.
+  const todayKey = cairoDateKeyFromParts(todayParts.y, todayParts.m, todayParts.d);
+  const tLog = healthLogs[todayKey];
+  let streak = 0;
+  if (!(tLog && scoreOfServer(tLog) === 0)) {
+    const cursor = new Date(Date.UTC(todayParts.y, todayParts.m - 1, todayParts.d));
+    if (!tLog) cursor.setUTCDate(cursor.getUTCDate() - 1);
+    while (true) {
+      const key = cairoDateKeyFromParts(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, cursor.getUTCDate());
+      const log = healthLogs[key];
+      if (!log || scoreOfServer(log) === 0) break;
+      streak++;
+      cursor.setUTCDate(cursor.getUTCDate() - 1);
+    }
+  }
+
+  // Honest bonus metric: days this week with ANY health data logged at all,
+  // out of the last 7 — real and available, unlike "momentum" or "Enzo
+  // compliance" which aren't tracked anywhere in the current data model.
+  let loggedDays = 0;
+  const d2 = new Date(Date.UTC(todayParts.y, todayParts.m - 1, todayParts.d));
+  for (let i = 0; i < 7; i++) {
+    const key = cairoDateKeyFromParts(d2.getUTCFullYear(), d2.getUTCMonth() + 1, d2.getUTCDate());
+    const log = healthLogs[key];
+    if (log && scoreOfServer(log) > 0) loggedDays++;
+    d2.setUTCDate(d2.getUTCDate() - 1);
+  }
+
+  return (
+    completedThisWeek + " task" + (completedThisWeek === 1 ? "" : "s") + " done  ·  " +
+    streak + "-day streak  ·  " +
+    loggedDays + "/7 tracked"
+  );
+}
+
 module.exports = async (req, res) => {
   const auth = req.headers["authorization"] || "";
   if (auth !== "Bearer " + process.env.CRON_SECRET) {
@@ -266,8 +337,31 @@ module.exports = async (req, res) => {
       }
     } catch (e) {}
 
+    // ---- weekly recap: Sunday evening, once ----
+    let recapSent = 0;
+    try {
+      const day = cairoParts(new Date(now));
+      const weekday = new Date(Date.UTC(day.y, day.m - 1, day.d)).getUTCDay(); // 0 = Sunday
+      const recapAt = cairoWallToUTC(day.y, day.m, day.d, 20, 0);
+      const recapKey = "recap:" + day.y + "-" + String(day.m).padStart(2, "0") + "-" + String(day.d).padStart(2, "0");
+
+      if (weekday === 0 && !notified[recapKey] && now >= recapAt && now - recapAt < 3 * 60 * 60 * 1000) {
+        const summary = await buildWeeklyRecap(day);
+        try {
+          await webpush.sendNotification(
+            subscription,
+            JSON.stringify({ title: "Your week", body: summary, tag: recapKey })
+          );
+          recapSent = 1;
+        } catch (e) {}
+        notified[recapKey] = true;
+      } else if (weekday === 0 && !notified[recapKey] && now - recapAt > 3 * 60 * 60 * 1000) {
+        notified[recapKey] = true; // missed window, don't fire late
+      }
+    } catch (e) {}
+
     await redisCmd(["SET", "flow:notified", JSON.stringify(notified)]);
-    res.status(200).json({ ok: true, sent, fixtureSent, routineSent });
+    res.status(200).json({ ok: true, sent, fixtureSent, routineSent, recapSent });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

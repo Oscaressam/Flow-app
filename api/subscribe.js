@@ -36,6 +36,9 @@ module.exports = async (req, res) => {
     if (body.routines) {
       await redisCmd(["SET", "flow:routines", JSON.stringify(body.routines)]);
     }
+    if (body.healthLogs) {
+      await redisCmd(["SET", "flow:health", JSON.stringify(body.healthLogs)]);
+    }
     res.status(200).json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });
