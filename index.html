@@ -950,6 +950,8 @@
   var state = {
     composerOpen: false,
     fixtures: load(STORAGE_FIXTURES) || [],
+    liveScore: null,
+    liveScoreFetchedAt: 0,
     fixturePrefs: load(STORAGE_FXPREFS) || {},
     routines: load(STORAGE_ROUTINES) || DEFAULT_ROUTINES(),
     routineComposerOpen: false,
@@ -1689,15 +1691,44 @@
     return "";
   }
 
-  function countdownLabel(startUTC) {
+  function countdownLabel(startUTC, kind) {
     var ms = new Date(startUTC).getTime() - Date.now();
-    if (ms <= 0) return "LIVE NOW";
+    if (ms <= 0) {
+      // Only Liverpool gets a real live score — built and tested, but the
+      // one piece I couldn't get a direct live verification of, so it
+      // degrades cleanly: no data yet, wrong shape, fetch failed, or the
+      // match is outside a plausible live window (>3h since kickoff) all
+      // fall straight back to this same "LIVE NOW" that's always worked.
+      if (kind === "liverpool" && -ms < 3 * 3600 * 1000 && state.liveScore && state.liveScore.live) {
+        var s = state.liveScore;
+        return s.myScore + "-" + s.oppScore + (s.statusText ? "  " + s.statusText : "");
+      }
+      return "LIVE NOW";
+    }
     var mins = Math.floor(ms / 60000);
     var days = Math.floor(mins / 1440);
     var hrs = Math.floor((mins % 1440) / 60);
     if (days > 0) return days + "d " + hrs + "h";
     if (hrs > 0) return hrs + "h " + (mins % 60) + "m";
     return mins + "m";
+  }
+
+  function hasLiveLiverpoolFixture() {
+    return (state.fixtures || []).some(function (f) {
+      if (f.kind !== "liverpool") return false;
+      var elapsed = Date.now() - new Date(f.startUTC).getTime();
+      return elapsed >= 0 && elapsed < 3 * 3600 * 1000;
+    });
+  }
+
+  function maybeFetchLiveScore() {
+    if (!hasLiveLiverpoolFixture()) return;
+    if (Date.now() - (state.liveScoreFetchedAt || 0) < 55000) return;
+    state.liveScoreFetchedAt = Date.now();
+    fetch(API_BASE + "/api/livescore")
+      .then(function (r) { return r.json(); })
+      .then(function (d) { state.liveScore = d; render(); })
+      .catch(function () {});
   }
 
   function renderFixtures() {
@@ -1728,7 +1759,7 @@
           '<div class="fx-meta mono">' + escapeHtml(f.competition || "") +
             (f.timeKnown ? "  ·  " + when : "  ·  " + when.split(",")[0] + "  ·  TBC") + '</div>' +
         '</div>' +
-        '<span class="fx-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</span>' +
+        '<span class="fx-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC, f.kind) + '</span>' +
       '</div>';
     });
 
@@ -2065,7 +2096,7 @@
         '<span class="st-label">' + src.label + '</span>' +
         '<span class="st-sub mono">' + (mine.length ? mine.length + " upcoming" : "no fixtures") + '</span>' +
         (next
-          ? '<span class="st-next mono">' + countdownLabel(next.startUTC) + '</span>'
+          ? '<span class="st-next mono">' + countdownLabel(next.startUTC, next.kind) + '</span>'
           : '') +
       '</button>';
     });
@@ -2093,7 +2124,7 @@
         html += '<div class="sp-event' + (open ? " open" : "") + '">' +
           '<div class="sp-tap" data-action="fixture-detail" data-id="' + f.id + '">' +
           '<div class="sp-head">' +
-            '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</div>' +
+            '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC, f.kind) + '</div>' +
             fixtureBadge(f, 30) +
           '</div>' +
           '<div class="sp-title">' + escapeHtml(f.title) +
@@ -2331,7 +2362,7 @@
       html += '<div class="sp-event' + (open ? " open" : "") + '">' +
         '<div class="sp-tap" data-action="fixture-detail" data-id="' + f.id + '">' +
         '<div class="sp-head">' +
-          '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC) + '</div>' +
+          '<div class="sp-cd mono' + (live ? " live" : "") + '">' + countdownLabel(f.startUTC, f.kind) + '</div>' +
           fixtureBadge(f, 30) +
         '</div>' +
         '<div class="sp-title">' + escapeHtml(f.title) +
@@ -3033,6 +3064,11 @@
   backfillMissingCovers();
   fetchFixtures();
 
+  // Only polls when a Liverpool fixture is actually within its live window
+  // (hasLiveLiverpoolFixture gates it) — otherwise this fires every 60s and
+  // does nothing, which is the point: no wasted requests on a normal day.
+  setInterval(maybeFetchLiveScore, 60000);
+
   // refresh fixtures when the app is reopened, at most every 30 min
   var lastFixtureFetch = Date.now();
   document.addEventListener("visibilitychange", function () {
@@ -3040,6 +3076,7 @@
       lastFixtureFetch = Date.now();
       fetchFixtures();
     }
+    if (document.visibilityState === "visible") maybeFetchLiveScore();
   });
 
   function backfillMissingCovers() {
