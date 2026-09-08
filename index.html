@@ -645,7 +645,7 @@
   .cat-chip {
     /* 12 of these render on every screen, always — the highest simultaneous
        blur count in the app before this fix. Flat, same reasoning as .card. */
-    position:relative; width:44px; height:44px; border-radius:15px; flex-shrink:0;
+    position:relative; width:68px; height:68px; border-radius:22px; flex-shrink:0;
     display:flex; align-items:center; justify-content:center; padding:0;
     background:var(--card-flat); border:1px solid var(--card-flat-border);
     color:var(--cat-color); cursor:pointer;
@@ -653,9 +653,10 @@
   }
   .cat-chip:active { transform:scale(.92); }
   .cat-chip .sticker {
-    width:27px; height:27px; display:block; opacity:.82;
+    width:44px; height:44px; display:block; opacity:.9;
     filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));
     transition:opacity .18s, transform .18s cubic-bezier(.16,1,.3,1);
+    transform-origin:center 62%;
   }
   .cat-chip .sticker svg { width:100%; height:100%; display:block; }
   .cat-chip.active {
@@ -665,11 +666,59 @@
   }
   .cat-chip.active .sticker { opacity:1; transform:scale(1.1); }
   .cat-badge {
-    position:absolute; top:-4px; right:-4px; min-width:17px; height:17px; padding:0 4px;
-    border-radius:9px; background:var(--cat-color); color:#0B0D12;
-    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+    position:absolute; top:-5px; right:-5px; min-width:20px; height:20px; padding:0 5px;
+    border-radius:10px; background:var(--cat-color); color:#0B0D12;
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
     display:flex; align-items:center; justify-content:center; line-height:1;
-    box-shadow:0 0 0 2px var(--bg);
+    box-shadow:0 0 0 2px var(--bg); z-index:1;
+  }
+
+  /* ---------- per-category chip motion — each tied to what its icon shows,
+     not one generic pulse for all. Slow, GPU-cheap (transform/opacity only),
+     staggered durations so 8 chips don't all move in lockstep. ---------- */
+  @keyframes catAllShuffle { 0%,100% { transform:rotate(0deg); } 50% { transform:rotate(-7deg) scale(1.04); } }
+  @keyframes catWorkBob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3.5px); } }
+  @keyframes catEntTwinkle {
+    0%,100% { transform:scale(1) rotate(0deg); filter:drop-shadow(0 2px 3px rgba(0,0,0,.4)) brightness(1); }
+    50% { transform:scale(1.12) rotate(-4deg); filter:drop-shadow(0 3px 6px rgba(0,0,0,.4)) brightness(1.3); }
+  }
+  @keyframes catHeartbeat {
+    0%, 28%, 100% { transform:scale(1); }
+    8% { transform:scale(1.16); }
+    16% { transform:scale(1); }
+    24% { transform:scale(1.12); }
+  }
+  @keyframes catNotesSway { 0%,100% { transform:rotate(0deg); } 25% { transform:rotate(-6deg); } 75% { transform:rotate(6deg); } }
+  @keyframes catTrophyRaise {
+    0%,100% { transform:translateY(0) rotate(0deg); }
+    30% { transform:translateY(-4px) rotate(-5deg); }
+    60% { transform:translateY(-4px) rotate(5deg); }
+  }
+  @keyframes catDogTilt {
+    0%,100% { transform:rotate(0deg); }
+    20% { transform:rotate(-10deg); }
+    40% { transform:rotate(0deg); }
+    62% { transform:rotate(8deg); }
+    82% { transform:rotate(0deg); }
+  }
+  @keyframes catClockRing {
+    0%, 84%, 100% { transform:rotate(0deg); }
+    86% { transform:rotate(-11deg); } 88% { transform:rotate(11deg); }
+    90% { transform:rotate(-8deg); }  92% { transform:rotate(8deg); }
+    94% { transform:rotate(-3deg); }  96% { transform:rotate(0deg); }
+  }
+
+  .cat-chip[data-id="all"] .sticker { animation:catAllShuffle 3.4s ease-in-out infinite; }
+  .cat-chip[data-id="work"] .sticker { animation:catWorkBob 2.6s ease-in-out infinite; }
+  .cat-chip[data-id="entertainment"] .sticker { animation:catEntTwinkle 2.9s ease-in-out infinite; }
+  .cat-chip[data-id="health"] .sticker { animation:catHeartbeat 2.6s ease-in-out infinite; }
+  .cat-chip[data-id="notes"] .sticker { animation:catNotesSway 3.8s ease-in-out infinite; }
+  .cat-chip[data-id="sports"] .sticker { animation:catTrophyRaise 3.2s ease-in-out infinite; }
+  .cat-chip[data-id="dog"] .sticker { animation:catDogTilt 3.6s ease-in-out infinite; }
+  .cat-chip[data-id="routines"] .sticker { animation:catClockRing 4.2s ease-in-out infinite; }
+
+  @media (prefers-reduced-motion:reduce) {
+    .cat-chip .sticker { animation:none !important; }
   }
 
   /* ---------- sports submenu icon tiles ---------- */
@@ -1346,6 +1395,9 @@
       (tasks.length ? '<span class="cat-badge">' + tasks.length + '</span>' : '') +
     '</button>';
     CATEGORIES.forEach(function (cat) {
+      if (cat.id === "inbox") return; // hidden from the chip row on purpose — still a real
+      // category underneath: unmatched tasks still land there and still show
+      // in the "All" tab grouping, just no direct chip to jump to it
       var count = tasks.filter(function (t) { return t.categoryId === cat.id; }).length;
       var active = state.filter === cat.id;
       html += '<button class="cat-chip' + (active ? " active" : "") + '" data-action="set-filter" data-id="' + cat.id + '" style="--cat-color:' + cat.color + '" title="' + cat.short + '">' +
