@@ -216,10 +216,14 @@
   }
 
   /* ---------- clean note tile: title, pin mark, no permanent buttons ---------- */
-  .note-title-view { font-size:14px; font-weight:800; letter-spacing:-.01em; margin-bottom:5px; }
+  .note-title-view {
+    font-size:15px; font-weight:800; letter-spacing:-.01em;
+    padding-bottom:8px; margin-bottom:9px; border-bottom:1px solid var(--hairline-strong);
+  }
   .note-title-input {
-    width:100%; background:transparent; border:none; outline:none; margin-bottom:6px;
-    font-family:inherit; font-size:14px; font-weight:800; letter-spacing:-.01em; color:var(--text);
+    width:100%; background:transparent; border:none; outline:none;
+    padding-bottom:8px; margin-bottom:9px; border-bottom:1px solid var(--hairline-strong);
+    font-family:inherit; font-size:15px; font-weight:800; letter-spacing:-.01em; color:var(--text);
   }
   .note-title-input::placeholder { color:var(--dim); font-weight:600; }
   .note-pin-mark {
@@ -256,6 +260,12 @@
   .note-menu-colors:active { background:none; }
   .note-menu-colors .note-palette { display:flex; gap:7px; flex-wrap:wrap; justify-content:flex-end; }
   .note-menu-colors .note-swatch { width:20px; height:20px; }
+  .note-menu-cat { justify-content:space-between; cursor:default; }
+  .note-menu-cat:active { background:none; }
+  .note-cat-select {
+    background:var(--surface-1); border:1px solid var(--hairline-strong); color:var(--text);
+    font-family:inherit; font-size:13px; padding:6px 10px; border-radius:10px;
+  }
   .note-menu-close {
     width:100%; margin-top:14px; padding:13px; border-radius:14px; text-align:center;
     background:var(--surface-1); border:1px solid var(--hairline-strong); color:var(--text);
@@ -1513,6 +1523,14 @@
             return '<button class="note-swatch' + ((t.color || "") === c.id ? " active" : "") + (isDefault ? " default" : "") +
               '" data-action="set-note-color" data-id="' + t.id + '" data-color="' + c.id + '" style="background:' + sw + '"></button>';
           }).join("") + '</span>' +
+        '</div>' +
+        '<div class="note-menu-row note-menu-cat">' +
+          '<span>Category</span>' +
+          '<select class="note-cat-select" data-role="note-cat-select" data-id="' + t.id + '">' +
+            CATEGORIES.map(function (c) {
+              return '<option value="' + c.id + '"' + (c.id === t.categoryId ? " selected" : "") + '>' + escapeHtml(c.short) + '</option>';
+            }).join("") +
+          '</select>' +
         '</div>' +
         '<button class="note-menu-row" data-action="toggle-archive-note" data-id="' + t.id + '">' +
           ico(archived ? "unarchive" : "archive", 16) + '<span>' + (archived ? "Unarchive" : "Archive") + '</span>' +
@@ -3126,6 +3144,13 @@
           render();
         });
       }).catch(function () { alert("Couldn't process that photo — try a different one."); });
+    } else if (e.target.matches('[data-role="note-cat-select"]')) {
+      var noteCatId = e.target.dataset.id;
+      var newCat = e.target.value;
+      tasks = tasks.map(function (t) { return t.id === noteCatId ? Object.assign({}, t, { categoryId: newCat }) : t; });
+      persistTasks();
+      state.noteMenuId = null;
+      render();
     } else if (e.target.matches('[data-role="cat-select"]')) {
       var id1 = e.target.dataset.id;
       tasks = tasks.map(function (t) { return t.id === id1 ? Object.assign({}, t, { categoryId: e.target.value }) : t; });
