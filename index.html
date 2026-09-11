@@ -811,10 +811,75 @@
   .tbl-chev { font-size:10px; color:var(--dim); flex-shrink:0; padding-left:12px; }
   .tbl-body { margin-top:14px; padding-top:2px; border-top:1px solid var(--hairline); animation:kRise .32s cubic-bezier(.16,1,.3,1); }
   .tbl-body .tbl-head { padding-top:9px; }
+  /* ---------- Canvas: full-screen overlay, its own DOM world ---------- */
+  #canvas-overlay {
+    position:fixed; inset:0; z-index:200; background:var(--bg);
+    display:flex; flex-direction:column; overscroll-behavior:none;
+  }
+  .cv-topbar {
+    display:flex; align-items:center; gap:10px; padding:12px 14px;
+    border-bottom:1px solid var(--hairline); background:rgba(8,8,10,.85);
+    backdrop-filter:blur(14px); flex-shrink:0; z-index:5;
+  }
+  .cv-back {
+    display:flex; align-items:center; gap:7px; background:none; border:none;
+    color:var(--muted); font-family:inherit; font-size:12.5px; cursor:pointer; flex-shrink:0;
+  }
+  .cv-back .ico { transform:scaleX(-1); }
+  .cv-tabs { display:flex; gap:6px; overflow-x:auto; flex:1; scrollbar-width:none; }
+  .cv-tabs::-webkit-scrollbar { display:none; }
+  .cv-tab {
+    flex-shrink:0; padding:7px 13px; border-radius:12px; font-size:12px; font-weight:600;
+    background:var(--surface-1); border:1px solid var(--hairline-strong); color:var(--muted);
+    cursor:pointer; white-space:nowrap; font-family:inherit;
+  }
+  .cv-tab.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  .cv-newboard {
+    flex-shrink:0; width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    background:var(--surface-1); border:1px solid var(--hairline-strong); color:var(--muted); cursor:pointer;
+  }
+  .cv-board-wrap { position:relative; flex:1; overflow:hidden; cursor:grab; touch-action:none; }
+  .cv-board {
+    position:absolute; top:0; left:0; width:4000px; height:3000px;
+    background-image:radial-gradient(circle, rgba(255,255,255,.07) 1px, transparent 1px);
+    background-size:28px 28px; transform-origin:0 0;
+  }
+  .cv-edges { position:absolute; top:0; left:0; width:4000px; height:3000px; pointer-events:none; overflow:visible; }
+  .cv-edge-line { stroke:var(--accent); stroke-width:2; fill:none; opacity:.85; }
+  .cv-edge-arrow { fill:var(--accent); opacity:.85; }
+  .cv-card {
+    position:absolute; min-width:160px; min-height:110px;
+    background:rgba(20,20,24,.9); border:1.5px solid var(--cv-color, var(--hairline-strong));
+    border-radius:16px; box-shadow:0 14px 34px -16px rgba(0,0,0,.7);
+    display:flex; flex-direction:column; user-select:none;
+  }
+  .cv-card.linking { box-shadow:0 0 0 2px var(--accent), 0 0 22px -4px var(--accent-glow); }
+  .cv-card-head { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:8px 9px 6px; cursor:grab; flex-shrink:0; touch-action:none; }
+  .cv-swatches { display:flex; gap:4px; }
+  .cv-swatch { width:12px; height:12px; border-radius:50%; cursor:pointer; border:1.5px solid rgba(255,255,255,.15); }
+  .cv-swatch.active { box-shadow:0 0 0 2px var(--bg), 0 0 0 3px currentColor; }
+  .cv-link-btn { width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--surface-1); border:none; color:var(--dim); cursor:pointer; flex-shrink:0; }
+  .cv-link-btn.active { background:var(--accent); color:var(--on-accent); }
+  .cv-card-body { flex:1; padding:2px 12px 12px; font-size:13.5px; line-height:1.45; outline:none; overflow:hidden; word-break:break-word; color:var(--text); }
+  .cv-card-body:empty::before { content:attr(data-placeholder); color:var(--dim); }
+  .cv-resize { position:absolute; right:2px; bottom:2px; width:18px; height:18px; cursor:nwse-resize; touch-action:none; }
+  .cv-resize::after { content:""; position:absolute; right:4px; bottom:4px; width:8px; height:8px; border-right:2px solid var(--dim); border-bottom:2px solid var(--dim); opacity:.5; }
+  .cv-toolbar {
+    position:absolute; left:16px; bottom:16px; z-index:6; display:flex; align-items:center; gap:6px; padding:6px;
+    background:rgba(20,20,24,.9); border:1px solid var(--hairline-strong); border-radius:16px; box-shadow:0 14px 34px -16px rgba(0,0,0,.7);
+  }
+  .cv-tool {
+    width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center;
+    background:none; border:none; color:var(--muted); cursor:pointer; font-size:18px; font-family:inherit;
+  }
+  .cv-tool.primary { background:linear-gradient(135deg,var(--accent-2),var(--accent)); color:var(--on-accent); }
+  .cv-divider { width:1px; height:22px; background:var(--hairline-strong); margin:0 2px; }
+  .cv-zoom-label { font-size:11px; color:var(--dim); width:38px; text-align:center; }
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="canvas-overlay" style="display:none;"></div>
 
 <script>
 (function () {
@@ -833,6 +898,7 @@
   var STORAGE_FIXTURES = "mindorg.fixtures.v2";
   var STORAGE_FXPREFS = "mindorg.fixtureprefs.v1";
   var STORAGE_ROUTINES = "mindorg.routines.v1";
+  var STORAGE_CANVAS = "mindorg.canvas.v1";
   var SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
   var SPEECH_SUPPORTED = !!SpeechRecognitionAPI;
   var activeRecognition = null;
@@ -849,8 +915,8 @@
   }
 
   var CATEGORIES = [
-    { id: "work", name: "Happiness Entertainment", short: "Work", color: "#F0B429", iconName: "briefcase",
-      keywords: ["hotel","animator","animation","jaz","baron","true beach","sharm","marsa alam","shift","staff","guest experience","review platform","tripadvisor","entertainment team","stage","contract","training session","event"] },
+    { id: "canvas", name: "Canvas", short: "Canvas", color: "#FBB102", iconName: "layers",
+      keywords: [] },
     { id: "notes", name: "Notes", short: "Notes", color: "#60A5FA", iconName: "note",
       keywords: ["note","idea","thought"] },
     { id: "routines", name: "Routines", short: "Routines", color: "#FF8A5C", iconName: "clock",
@@ -930,7 +996,7 @@
   // those buckets gets reassigned rather than silently orphaned or crashing
   // on a categoryId that no longer maps to anything.
   (function migrateRemovedCategories() {
-    var toInbox = { home: 1, vonarson: 1 };
+    var toInbox = { home: 1, vonarson: 1, work: 1 };
     var toEntertainment = { books: 1, movies: 1, series: 1 };
     var changed = false;
     tasks = tasks.map(function (t) {
@@ -1289,6 +1355,7 @@
     work: '<svg viewBox="0 0 48 48"><path d="M18 12V9a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3" fill="none" stroke="#7A5B12" stroke-width="3.4" stroke-linecap="round"/><rect x="6" y="12" width="36" height="26" rx="5" fill="#F0B429"/><rect x="6" y="20" width="36" height="7" fill="#D99B12"/><circle cx="24" cy="23.5" r="2.6" fill="#7A5B12"/></svg>',
 
     entertainment: '<svg viewBox="0 0 48 48"><defs><linearGradient id="entScreenGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FFCA4A"/><stop offset="55%" stop-color="#EF4444"/><stop offset="100%" stop-color="#8B7CF6"/></linearGradient></defs><rect x="4" y="7" width="40" height="28" rx="6" fill="url(#entScreenGrad)"/><rect x="8" y="11" width="32" height="20" rx="3" fill="#101014"/><path d="M20 16l10 5-10 5z" fill="#fff"/><circle cx="12" cy="14" r="1.3" fill="#fff" opacity=".7"/><path d="M18 40h12" stroke="#101014" stroke-width="3.4" stroke-linecap="round"/></svg>',
+    canvas: '<svg viewBox="0 0 48 48"><rect x="4" y="6" width="16" height="12" rx="3" fill="#FBB102"/><rect x="28" y="4" width="16" height="12" rx="3" fill="#F87171"/><rect x="14" y="28" width="16" height="12" rx="3" fill="#60A5FA"/><path d="M20 12h8M16 18l-2 10M32 16l-2 12" stroke="#7A6A2E" stroke-width="2" fill="none" stroke-linecap="round" opacity=".55"/><circle cx="20" cy="12" r="1.6" fill="#7A6A2E"/><circle cx="28" cy="12" r="1.6" fill="#7A6A2E"/><circle cx="16" cy="18" r="1.6" fill="#7A6A2E"/><circle cx="14" cy="28" r="1.6" fill="#7A6A2E"/><circle cx="32" cy="16" r="1.6" fill="#7A6A2E"/><circle cx="30" cy="28" r="1.6" fill="#7A6A2E"/></svg>',
 
     books: '<svg viewBox="0 0 48 48"><rect x="7" y="26" width="34" height="7" rx="1.5" fill="#34D399" transform="rotate(-3 24 29)"/><rect x="8" y="17" width="32" height="8" rx="1.5" fill="#60A5FA"/><rect x="9" y="8" width="30" height="9" rx="1.5" fill="#F472B6"/><rect x="9" y="8" width="5" height="9" fill="#D6467F"/></svg>',
 
@@ -1361,6 +1428,8 @@
   var root = document.getElementById("app");
 
   function render() {
+    if (state.filter === "canvas") { showCanvasOverlay(); return; }
+    hideCanvasOverlay();
     var todayKey = fmtKey(new Date());
     var openCount = tasks.filter(function (t) { return !t.done && t.categoryId !== "notes"; }).length;
     var dueSoonAll = tasks.filter(function (t) {
@@ -2366,6 +2435,273 @@
   // Books/Movies/Series keep their exact existing renderLibraryView(type)
   // untouched — this just adds one navigation layer in front of it, same
   // pattern as the Sports hub, sharing the same swipe-back mechanism.
+  // ============================================================
+  // CANVAS — a genuinely different rendering model from the rest of
+  // this app on purpose. Everywhere else, render() does a full
+  // innerHTML rebuild on every change, which is fine for lists but
+  // would make dragging feel awful and — worse — a background timer
+  // (live score, theme check) firing mid-drag would wipe the drag
+  // state outright, since it lives in the exact same DOM subtree.
+  // Canvas gets its own sibling container (#canvas-overlay, added
+  // outside #app in the static shell) that the outer render() never
+  // touches. Once mounted, it manages its own DOM directly and only
+  // talks to the rest of the app through localStorage persistence,
+  // never through the app's render() cycle.
+  // ============================================================
+  var CANVAS_COLORS = ['#F87171','#FB923C','#FBBF24','#34D399','#2DD4BF','#60A5FA','#A78BFA','#F472B6'];
+  var canvasData = load(STORAGE_CANVAS) || {
+    canvases: { "Board 1": { cards: [], edges: [] } },
+    order: ["Board 1"],
+    active: "Board 1",
+  };
+  function persistCanvasData() { save(STORAGE_CANVAS, canvasData); }
+  var canvasMounted = false;
+
+  function showCanvasOverlay() {
+    var overlay = document.getElementById("canvas-overlay");
+    if (!overlay) return;
+    overlay.style.display = "block";
+    if (!canvasMounted) { mountCanvas(overlay); canvasMounted = true; }
+  }
+  function hideCanvasOverlay() {
+    var overlay = document.getElementById("canvas-overlay");
+    if (overlay) overlay.style.display = "none";
+  }
+
+  function mountCanvas(overlay) {
+    overlay.innerHTML =
+      '<div class="cv-topbar">' +
+        '<button class="cv-back" id="cvBack">' + ico("reset", 15) + '<span>MindORG</span></button>' +
+        '<div class="cv-tabs" id="cvTabs"></div>' +
+        '<button class="cv-newboard" id="cvNewBoard">' + ico("plus", 14) + '</button>' +
+      '</div>' +
+      '<div class="cv-board-wrap" id="cvBoardWrap">' +
+        '<div class="cv-board" id="cvBoard"><svg class="cv-edges" id="cvEdges"></svg></div>' +
+      '</div>' +
+      '<div class="cv-toolbar">' +
+        '<button class="cv-tool primary" id="cvAddCard">' + ico("plus", 17) + '</button>' +
+        '<div class="cv-divider"></div>' +
+        '<button class="cv-tool" id="cvZoomOut">−</button>' +
+        '<span class="cv-zoom-label mono" id="cvZoomLabel">100%</span>' +
+        '<button class="cv-tool" id="cvZoomIn">+</button>' +
+      '</div>';
+
+    var view = { x: 0, y: 0, zoom: 1 };
+    var linkingFrom = null;
+    var idCounter = Date.now();
+
+    var boardWrap = document.getElementById("cvBoardWrap");
+    var board = document.getElementById("cvBoard");
+    var tabsEl = document.getElementById("cvTabs");
+    var zoomLabel = document.getElementById("cvZoomLabel");
+
+    function cur() { return canvasData.canvases[canvasData.active]; }
+
+    function applyView() {
+      board.style.transform = "translate(" + view.x + "px," + view.y + "px) scale(" + view.zoom + ")";
+      zoomLabel.textContent = Math.round(view.zoom * 100) + "%";
+    }
+
+    function renderTabs() {
+      tabsEl.innerHTML = "";
+      canvasData.order.forEach(function (name) {
+        var b = document.createElement("button");
+        b.className = "cv-tab" + (name === canvasData.active ? " active" : "");
+        b.textContent = name;
+        b.onclick = function () { canvasData.active = name; linkingFrom = null; persistCanvasData(); renderBoard(); };
+        tabsEl.appendChild(b);
+      });
+    }
+
+    function cardCenter(c) { return { x: c.x + c.w / 2, y: c.y + c.h / 2 }; }
+
+    function renderEdges() {
+      var edgesSvg = document.getElementById("cvEdges");
+      var html = '<defs><marker id="cvArrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="cv-edge-arrow"/></marker></defs>';
+      cur().edges.forEach(function (e) {
+        var a = cur().cards.find(function (c) { return c.id === e.from; });
+        var b = cur().cards.find(function (c) { return c.id === e.to; });
+        if (!a || !b) return;
+        var p1 = cardCenter(a), p2 = cardCenter(b);
+        var mx = (p1.x + p2.x) / 2;
+        html += '<path class="cv-edge-line" marker-end="url(#cvArrow)" d="M' + p1.x + ',' + p1.y + ' Q' + mx + ',' + p1.y + ' ' + p2.x + ',' + p2.y + '"/>';
+      });
+      edgesSvg.innerHTML = html;
+    }
+
+    function renderBoard() {
+      renderTabs();
+      var cardsHtml = "";
+      cur().cards.forEach(function (c) {
+        var swatches = CANVAS_COLORS.map(function (col) {
+          return '<span class="cv-swatch' + (c.color === col ? " active" : "") + '" style="background:' + col + ';color:' + col + '" data-swatch="' + col + '" data-card="' + c.id + '"></span>';
+        }).join("");
+        cardsHtml += '<div class="cv-card' + (linkingFrom === c.id ? " linking" : "") + '" data-card-id="' + c.id + '" ' +
+          'style="left:' + c.x + 'px;top:' + c.y + 'px;width:' + c.w + 'px;height:' + c.h + 'px;--cv-color:' + c.color + '">' +
+          '<div class="cv-card-head" data-drag="' + c.id + '">' +
+            '<div class="cv-swatches">' + swatches + '</div>' +
+            '<button class="cv-link-btn' + (linkingFrom === c.id ? " active" : "") + '" data-link="' + c.id + '">' +
+              ico("spark", 11) +
+            '</button>' +
+          '</div>' +
+          '<div class="cv-card-body" contenteditable="true" data-placeholder="Type something…" data-text="' + c.id + '">' + escapeHtml(c.text || "") + '</div>' +
+          '<div class="cv-resize" data-resize="' + c.id + '"></div>' +
+        '</div>';
+      });
+      board.innerHTML = '<svg class="cv-edges" id="cvEdges"></svg>' + cardsHtml;
+      renderEdges();
+      wireCardEvents();
+      applyView();
+    }
+
+    // ---- pan (mouse + touch) ----
+    var panning = false, panStart = { x: 0, y: 0 }, viewStart = { x: 0, y: 0 };
+    var dragCard = null, dragStart = { x: 0, y: 0 }, dragCardStart = { x: 0, y: 0 };
+    var resizeCard = null, resizeStart = { x: 0, y: 0 }, resizeCardStart = { w: 0, h: 0 };
+
+    function pointerDownOnBoard(x, y, target) {
+      if (target.closest(".cv-card") || target.closest(".cv-toolbar") || target.closest(".cv-topbar")) return;
+      panning = true;
+      panStart = { x: x, y: y };
+      viewStart = { x: view.x, y: view.y };
+    }
+    function pointerMove(x, y) {
+      if (panning) {
+        view.x = viewStart.x + (x - panStart.x);
+        view.y = viewStart.y + (y - panStart.y);
+        applyView();
+      }
+      if (dragCard) {
+        dragCard.x = dragCardStart.x + (x - dragStart.x) / view.zoom;
+        dragCard.y = dragCardStart.y + (y - dragStart.y) / view.zoom;
+        var el = board.querySelector('[data-card-id="' + dragCard.id + '"]');
+        if (el) { el.style.left = dragCard.x + "px"; el.style.top = dragCard.y + "px"; }
+        renderEdges();
+      }
+      if (resizeCard) {
+        resizeCard.w = Math.max(140, resizeCardStart.w + (x - resizeStart.x) / view.zoom);
+        resizeCard.h = Math.max(90, resizeCardStart.h + (y - resizeStart.y) / view.zoom);
+        var rel = board.querySelector('[data-card-id="' + resizeCard.id + '"]');
+        if (rel) { rel.style.width = resizeCard.w + "px"; rel.style.height = resizeCard.h + "px"; }
+        renderEdges();
+      }
+    }
+    function pointerUp() {
+      var didMoveOrResize = !!(dragCard || resizeCard);
+      panning = false; dragCard = null; resizeCard = null;
+      if (didMoveOrResize) persistCanvasData();
+    }
+
+    boardWrap.addEventListener("mousedown", function (e) { pointerDownOnBoard(e.clientX, e.clientY, e.target); });
+    window.addEventListener("mousemove", function (e) { pointerMove(e.clientX, e.clientY); });
+    window.addEventListener("mouseup", pointerUp);
+    boardWrap.addEventListener("touchstart", function (e) {
+      var t = e.touches[0]; pointerDownOnBoard(t.clientX, t.clientY, e.target);
+    }, { passive: true });
+    boardWrap.addEventListener("touchmove", function (e) {
+      var t = e.touches[0]; pointerMove(t.clientX, t.clientY);
+    }, { passive: true });
+    boardWrap.addEventListener("touchend", pointerUp);
+
+    boardWrap.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      view.zoom = Math.min(2, Math.max(0.4, view.zoom + (e.deltaY > 0 ? -0.08 : 0.08)));
+      applyView();
+    }, { passive: false });
+
+    function wireCardEvents() {
+      board.querySelectorAll("[data-drag]").forEach(function (el) {
+        function begin(x, y, evTarget) {
+          if (evTarget.closest("[data-link]")) return;
+          var id = el.getAttribute("data-drag");
+          dragCard = cur().cards.find(function (c) { return c.id === id; });
+          dragStart = { x: x, y: y };
+          dragCardStart = { x: dragCard.x, y: dragCard.y };
+        }
+        el.addEventListener("mousedown", function (e) { e.stopPropagation(); begin(e.clientX, e.clientY, e.target); });
+        el.addEventListener("touchstart", function (e) { e.stopPropagation(); var t = e.touches[0]; begin(t.clientX, t.clientY, e.target); }, { passive: true });
+      });
+      board.querySelectorAll("[data-resize]").forEach(function (el) {
+        function begin(x, y) {
+          var id = el.getAttribute("data-resize");
+          resizeCard = cur().cards.find(function (c) { return c.id === id; });
+          resizeStart = { x: x, y: y };
+          resizeCardStart = { w: resizeCard.w, h: resizeCard.h };
+        }
+        el.addEventListener("mousedown", function (e) { e.stopPropagation(); begin(e.clientX, e.clientY); });
+        el.addEventListener("touchstart", function (e) { e.stopPropagation(); var t = e.touches[0]; begin(t.clientX, t.clientY); }, { passive: true });
+      });
+      board.querySelectorAll("[data-link]").forEach(function (el) {
+        el.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var id = el.getAttribute("data-link");
+          if (linkingFrom === id) { linkingFrom = null; }
+          else if (linkingFrom) {
+            if (linkingFrom !== id) { cur().edges.push({ from: linkingFrom, to: id }); persistCanvasData(); }
+            linkingFrom = null;
+          } else { linkingFrom = id; }
+          renderBoard();
+        });
+      });
+      board.querySelectorAll("[data-swatch]").forEach(function (el) {
+        el.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var c = cur().cards.find(function (x) { return x.id === el.getAttribute("data-card"); });
+          c.color = el.getAttribute("data-swatch");
+          persistCanvasData();
+          renderBoard();
+        });
+      });
+      board.querySelectorAll("[data-text]").forEach(function (el) {
+        el.addEventListener("mousedown", function (e) { e.stopPropagation(); });
+        el.addEventListener("touchstart", function (e) { e.stopPropagation(); }, { passive: true });
+        el.addEventListener("blur", function () {
+          var c = cur().cards.find(function (x) { return x.id === el.getAttribute("data-text"); });
+          c.text = el.innerText;
+          persistCanvasData();
+        });
+      });
+      board.querySelectorAll(".cv-card").forEach(function (el) {
+        el.addEventListener("click", function (e) {
+          if (!linkingFrom || e.target.closest("[data-link]")) return;
+          var id = el.getAttribute("data-card-id");
+          if (id !== linkingFrom) {
+            cur().edges.push({ from: linkingFrom, to: id });
+            linkingFrom = null;
+            persistCanvasData();
+            renderBoard();
+          }
+        });
+      });
+    }
+
+    document.getElementById("cvAddCard").addEventListener("click", function () {
+      idCounter++;
+      var cx = (boardWrap.clientWidth / 2 - view.x) / view.zoom - 100;
+      var cy = (boardWrap.clientHeight / 2 - view.y) / view.zoom - 55;
+      cur().cards.push({ id: "cvc" + idCounter, x: cx, y: cy, w: 200, h: 120, text: "", color: CANVAS_COLORS[idCounter % CANVAS_COLORS.length] });
+      persistCanvasData();
+      renderBoard();
+    });
+    document.getElementById("cvNewBoard").addEventListener("click", function () {
+      var name = "Board " + (canvasData.order.length + 1);
+      canvasData.canvases[name] = { cards: [], edges: [] };
+      canvasData.order.push(name);
+      canvasData.active = name;
+      persistCanvasData();
+      renderBoard();
+    });
+    document.getElementById("cvZoomIn").addEventListener("click", function () { view.zoom = Math.min(2, view.zoom + 0.15); applyView(); });
+    document.getElementById("cvZoomOut").addEventListener("click", function () { view.zoom = Math.max(0.4, view.zoom - 0.15); applyView(); });
+    document.getElementById("cvBack").addEventListener("click", function () {
+      state.filter = "all";
+      hideCanvasOverlay();
+      render();
+    });
+
+    renderBoard();
+  }
+
   function renderEntertainmentView() {
     if (!state.entertainmentView) return renderEntertainmentHub();
     var html = '<button class="sport-back" data-action="entertainment-back">' + ico("reset", 14) + '<span>Back</span></button>';
