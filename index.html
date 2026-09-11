@@ -1564,7 +1564,7 @@
       }
 
       var html = '<div class="tile note-tile' + (pinned ? " pinned" : "") + '" data-role="note-tile" data-id="' + t.id + '" style="background:linear-gradient(160deg,' + bg + '18,' + bg + '06);">' +
-        (pinned ? '<span class="note-pin-mark">' + ico("pin", 11) + '</span>' : "") +
+        (pinned && !editingNote ? '<span class="note-pin-mark">' + ico("pin", 11) + '</span>' : "") +
         body +
         '<span class="tile-note-meta mono">' + new Date(t.createdAt).toLocaleDateString([], { month: "short", day: "numeric" }) + '</span>' +
       '</div>';
@@ -1820,7 +1820,8 @@
 
   function renderNotesComposer() {
     return '<div class="card" style="margin-bottom:16px;">' +
-      '<div class="eyebrow">📝 Add a note</div>' +
+      '<div class="eyebrow">' + ico("note", 13) + ' Add a note</div>' +
+      '<input id="note-title-composer" class="note-title-input" type="text" placeholder="Title (optional)" />' +
       '<textarea id="note-input" class="note-edit-area" placeholder="Write a note…"></textarea>' +
       '<div style="display:flex;justify-content:flex-end;margin-top:10px;">' +
         '<button id="note-add-btn" class="chip" style="background:#60A5FA;color:#0B0D12;border-color:transparent;">+ Add note</button>' +
@@ -3277,7 +3278,9 @@
         addBtn.addEventListener("click", function () {
           var text = noteInput.value.trim();
           if (!text) return;
-          var newNote = { id: makeId(), text: text, categoryId: "notes", dueDate: null, done: false, createdAt: Date.now() };
+          var titleEl = document.getElementById("note-title-composer");
+          var title = titleEl ? titleEl.value.trim() : "";
+          var newNote = { id: makeId(), text: text, title: title, categoryId: "notes", dueDate: null, done: false, createdAt: Date.now() };
           tasks = [newNote].concat(tasks);
           persistTasks();
           render();
@@ -3287,8 +3290,19 @@
 
     var noteEditArea = document.querySelector('[data-role="note-edit"]');
     if (noteEditArea) {
-      noteEditArea.focus();
-      noteEditArea.setSelectionRange(noteEditArea.value.length, noteEditArea.value.length);
+      // Only steal focus into the body on a FRESH entry into edit mode — not
+      // on every single re-render while editing, which was fighting anyone
+      // who tapped the title field: attachInputHandlers runs after every
+      // render, so this used to yank focus back to the body constantly,
+      // making the title effectively untypeable.
+      var activeEl = document.activeElement;
+      var alreadyInThisNote = activeEl && activeEl.dataset &&
+        (activeEl.dataset.role === "note-edit" || activeEl.dataset.role === "note-title") &&
+        activeEl.dataset.id === noteEditArea.dataset.id;
+      if (!alreadyInThisNote) {
+        noteEditArea.focus();
+        noteEditArea.setSelectionRange(noteEditArea.value.length, noteEditArea.value.length);
+      }
       noteEditArea.addEventListener("blur", function () {
         var id = noteEditArea.dataset.id;
         var newText = noteEditArea.value.trim();
